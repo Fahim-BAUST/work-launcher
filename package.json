@@ -1,0 +1,85 @@
+{
+  "name": "work-launcher",
+  "productName": "Work Launcher",
+  "version": "1.0.0",
+  "description": "Automatically launch work applications on startup",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "build:msi": "electron-builder --win msi",
+    "build:nsis": "electron-builder --win nsis",
+    "build:portable": "electron-builder --win portable"
+  },
+  "author": "Work Launcher",
+  "build": {
+    "appId": "com.worklauncher.app",
+    "productName": "Work Launcher",
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "msi",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "msi": {
+      "oneClick": false,
+      "perMachine": true,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "warningsAsErrors": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico"
+    },
+    "directories": {
+      "output": "release"
+    },
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "files": [
+      "src/**/*",
+      "!**/*.map"
+    ]
+  },
+  "devDependencies": {
+    "electron": "^28.1.0",
+    "electron-builder": "^26.7.0",
+    "png-to-ico": "^3.0.1"
+  },
+  "dependencies": {
+    "assert-plus": "^1.0.0",
+    "auto-launch": "^5.0.6",
+    "electron-squirrel-startup": "^1.0.1",
+    "electron-store": "^8.1.0"
+  },
+  "keywords": [],
+  "license": "MIT"
+}

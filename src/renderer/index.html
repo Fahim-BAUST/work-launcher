@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+    />
+    <title>Work Launcher - Settings</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="header-row">
+          <h1>🚀 Work Launcher</h1>
+          <button id="themeToggle" class="btn btn-icon" title="Toggle Theme">
+            🌙
+          </button>
+        </div>
+        <p class="subtitle">Configure your startup applications</p>
+      </header>
+
+      <main>
+        <!-- Startup Settings Section -->
+        <section class="setting-section">
+          <h2>⚙️ Startup Settings</h2>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <h3>🔄 Run on Windows Startup</h3>
+              <p>Automatically start Work Launcher when your PC boots</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="autoLaunchToggle" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <h3>❓ Ask Before Launching</h3>
+              <p>Show a confirmation dialog before launching apps on startup</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="startupDialogToggle" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <h3>📥 Minimize to Tray</h3>
+              <p>Keep running in system tray when window is closed</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="minimizeToTrayToggle" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </section>
+
+        <!-- Launch Settings Section -->
+        <section class="setting-section">
+          <h2>🚀 Launch Settings</h2>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <h3>⏱️ Launch Delay</h3>
+              <p>
+                Time between launching each app:
+                <strong id="delayValue">1000</strong>ms
+              </p>
+            </div>
+            <div class="slider-container">
+              <input
+                type="range"
+                id="launchDelaySlider"
+                min="0"
+                max="5000"
+                step="100"
+                value="1000"
+              />
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <h3>⌨️ Global Shortcut</h3>
+              <p>
+                Press
+                <kbd id="shortcutDisplay">Ctrl+Shift+L</kbd>
+                to launch all apps from anywhere
+              </p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="shortcutToggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </section>
+
+        <!-- Profiles Section -->
+        <section class="setting-section profiles-section">
+          <div class="section-header">
+            <h2>📋 Launch Profiles</h2>
+            <button id="addProfileBtn" class="btn btn-success btn-sm">
+              ➕ New Profile
+            </button>
+          </div>
+          <p class="section-desc">
+            Save different app configurations for different work modes
+          </p>
+          <div id="profilesList" class="profiles-list">
+            <!-- Profiles will be dynamically inserted here -->
+          </div>
+        </section>
+
+        <!-- Applications list -->
+        <section class="apps-section">
+          <div class="section-header">
+            <h2>📱 Applications</h2>
+            <div class="header-buttons">
+              <button id="addAppBtn" class="btn btn-success btn-sm">
+                ➕ Add App
+              </button>
+              <button id="detectAppsBtn" class="btn btn-secondary btn-sm">
+                🔍 Re-detect
+              </button>
+            </div>
+          </div>
+
+          <div id="appsList" class="apps-list">
+            <!-- Apps will be dynamically inserted here -->
+          </div>
+
+          <p class="help-text" id="noAppsMessage" style="display: none">
+            No applications detected. Click "Re-detect Apps" to scan for
+            installed applications.
+          </p>
+        </section>
+
+        <!-- Notes Section -->
+        <section class="setting-section notes-section">
+          <div class="section-header">
+            <h2>📝 Quick Notes</h2>
+            <button
+              id="toggleNotesBtn"
+              class="btn btn-icon btn-sm"
+              title="Expand/Collapse"
+            >
+              ▼
+            </button>
+          </div>
+          <div id="notesContainer" class="notes-container">
+            <textarea
+              id="notesTextarea"
+              placeholder="Write your notes here... (auto-saves)"
+              rows="4"
+            ></textarea>
+            <div class="notes-footer">
+              <span id="notesSaveStatus" class="notes-status">✓ Saved</span>
+              <span id="notesCharCount" class="notes-char-count"
+                >0 characters</span
+              >
+            </div>
+          </div>
+        </section>
+
+        <!-- Action buttons -->
+        <section class="actions-section">
+          <button id="launchNowBtn" class="btn btn-primary btn-large">
+            🚀 Launch All Apps Now
+          </button>
+          <div class="btn-row">
+            <button id="saveBtn" class="btn btn-success">
+              💾 Save Settings
+            </button>
+            <button id="quitBtn" class="btn btn-danger">❌ Quit App</button>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <p>
+          ℹ️ Tip: The app runs in the system tray. Click the tray icon for quick
+          access.
+        </p>
+      </footer>
+    </div>
+
+    <!-- Add App Modal -->
+    <div id="addAppModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>➕ Add Custom Application</h3>
+          <button id="closeModalBtn" class="btn-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="customAppName">Application Name</label>
+            <input type="text" id="customAppName" placeholder="e.g., My App" />
+          </div>
+          <div class="form-group">
+            <label for="customAppPath">Executable Path</label>
+            <div class="path-input-row">
+              <input
+                type="text"
+                id="customAppPath"
+                placeholder="C:\Path\to\app.exe"
+                readonly
+              />
+              <button id="browseBtn" class="btn btn-secondary">
+                📁 Browse
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="cancelAddBtn" class="btn btn-secondary">Cancel</button>
+          <button id="confirmAddBtn" class="btn btn-success">
+            Add Application
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Profile Modal -->
+    <div id="profileModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="profileModalTitle">➕ Create New Profile</h3>
+          <button id="closeProfileModalBtn" class="btn-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="profileName">Profile Name</label>
+            <input
+              type="text"
+              id="profileName"
+              placeholder="e.g., Development, Meetings"
+            />
+          </div>
+          <p class="form-hint">
+            The profile will save your current app selections.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button id="cancelProfileBtn" class="btn btn-secondary">
+            Cancel
+          </button>
+          <button id="confirmProfileBtn" class="btn btn-success">
+            Create Profile
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status notification -->
+    <div id="notification" class="notification hidden">
+      <span id="notificationText"></span>
+    </div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>
