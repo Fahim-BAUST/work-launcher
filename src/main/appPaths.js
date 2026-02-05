@@ -1,5 +1,226 @@
 const fs = require("fs");
 const path = require("path");
+const { execSync } = require("child_process");
+const os = require("os");
+
+// Folders to skip when scanning
+const SKIP_FOLDERS = [
+  "administrative tools",
+  "accessibility",
+  "system tools",
+  "windows tools",
+  "startup",
+  "maintenance",
+  "windows powershell",
+  "windows system",
+];
+
+// Files to skip (lowercase)
+const SKIP_FILES = [
+  "uninstall",
+  "readme",
+  "help",
+  "license",
+  "website",
+  "documentation",
+  "manual",
+  "changelog",
+  "release notes",
+  "remove",
+  "repair",
+  "update",
+];
+
+/**
+ * Collect all .lnk files from a directory recursively
+ * @param {string} dir - Directory to scan
+ * @param {Array} lnkFiles - Array to collect .lnk file paths
+ */
+function collectLnkFiles(dir, lnkFiles) {
+  try {
+    if (!fs.existsSync(dir)) return;
+
+    const items = fs.readdirSync(dir, { withFileTypes: true });
+
+    for (const item of items) {
+      const fullPath = path.join(dir, item.name);
+
+      if (item.isDirectory()) {
+        // Skip certain system folders
+        if (
+          SKIP_FOLDERS.some((skip) => item.name.toLowerCase().includes(skip))
+        ) {
+          continue;
+        }
+        // Recursively scan subdirectories
+        collectLnkFiles(fullPath, lnkFiles);
+      } else if (item.name.toLowerCase().endsWith(".lnk")) {
+        // Skip uninstall and other utility shortcuts
+        const nameLower = item.name.toLowerCase();
+        if (SKIP_FILES.some((skip) => nameLower.includes(skip))) {
+          continue;
+        }
+        lnkFiles.push(fullPath);
+      }
+    }
+  } catch (error) {
+    // Silently ignore permission errors
+  }
+}
+
+/**
+ * Batch parse multiple .lnk files using PowerShell script file
+ * @param {Array} lnkPaths - Array of .lnk file paths
+ * @returns {Object} - Map of lnkPath -> targetPath
+ */
+function batchParseLnkFiles(lnkPaths) {
+  if (lnkPaths.length === 0) return {};
+
+  const mapping = {};
+  const tempDir = os.tmpdir();
+  const timestamp = Date.now();
+  const inputFile = path.join(tempDir, `wl-input-${timestamp}.txt`);
+  const outputFile = path.join(tempDir, `wl-output-${timestamp}.txt`);
+  const scriptFile = path.join(tempDir, `wl-script-${timestamp}.ps1`);
+
+  try {
+    // Write all paths to a temp file (one per line)
+    fs.writeFileSync(inputFile, lnkPaths.join("\r\n"), "utf8");
+
+    // Create PowerShell script file
+    const psScript = `
+$shell = New-Object -ComObject WScript.Shell
+$inputFile = "${inputFile.replace(/\\/g, "\\\\")}"
+$outputFile = "${outputFile.replace(/\\/g, "\\\\")}"
+$results = @()
+Get-Content $inputFile | ForEach-Object {
+  $lnk = $_.Trim()
+  if ($lnk -and (Test-Path -LiteralPath $lnk)) {
+    try {
+      $target = $shell.CreateShortcut($lnk).TargetPath
+      if ($target -and $target.ToLower().EndsWith('.exe') -and (Test-Path -LiteralPath $target)) {
+        $results += "$lnk|$target"
+      }
+    } catch {}
+  }
+}
+$results | Set-Content -Path $outputFile -Encoding UTF8
+`;
+
+    fs.writeFileSync(scriptFile, psScript, "utf8");
+
+    // Execute the script
+    execSync(
+      `powershell -NoProfile -ExecutionPolicy Bypass -File "${scriptFile}"`,
+      {
+        encoding: "utf8",
+        timeout: 60000,
+        windowsHide: true,
+      },
+    );
+
+    // Read results from output file
+    if (fs.existsSync(outputFile)) {
+      const output = fs.readFileSync(outputFile, "utf8").trim();
+      const lines = output.split(/\r?\n/).filter((line) => line.trim());
+
+      for (const line of lines) {
+        const pipeIndex = line.indexOf("|");
+        if (pipeIndex > 0) {
+          const lnkPath = line.substring(0, pipeIndex).trim();
+          const targetPath = line.substring(pipeIndex + 1).trim();
+          if (lnkPath && targetPath) {
+            mapping[lnkPath] = targetPath;
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error parsing shortcuts:", error.message);
+  } finally {
+    // Cleanup temp files
+    try {
+      if (fs.existsSync(inputFile)) fs.unlinkSync(inputFile);
+    } catch {}
+    try {
+      if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
+    } catch {}
+    try {
+      if (fs.existsSync(scriptFile)) fs.unlinkSync(scriptFile);
+    } catch {}
+  }
+
+  return mapping;
+}
+
+/**
+ * Get all installed apps by scanning Start Menu and common locations
+ * @returns {Object} - Object containing all detected apps
+ */
+function getAllInstalledApps() {
+  const apps = {};
+  const seenPaths = new Set();
+
+  // First, add the pre-defined apps
+  for (const [appName, paths] of Object.entries(DEFAULT_APP_PATHS)) {
+    const foundPath = findExecutable(paths);
+    if (foundPath) {
+      seenPaths.add(foundPath.toLowerCase());
+      apps[appName] = {
+        path: foundPath,
+        enabled: true,
+        displayName: getAppDisplayName(appName),
+        scanned: false,
+      };
+    }
+  }
+
+  // Collect all .lnk files from Start Menu
+  const lnkFiles = [];
+  const startMenuLocations = [
+    path.join(
+      process.env.APPDATA,
+      "Microsoft",
+      "Windows",
+      "Start Menu",
+      "Programs",
+    ),
+    path.join(
+      process.env.PROGRAMDATA || "C:\\ProgramData",
+      "Microsoft",
+      "Windows",
+      "Start Menu",
+      "Programs",
+    ),
+  ];
+
+  for (const location of startMenuLocations) {
+    collectLnkFiles(location, lnkFiles);
+  }
+
+  // Batch parse all shortcuts in one PowerShell call
+  const shortcutTargets = batchParseLnkFiles(lnkFiles);
+
+  // Process results
+  for (const [lnkPath, targetPath] of Object.entries(shortcutTargets)) {
+    if (!seenPaths.has(targetPath.toLowerCase())) {
+      seenPaths.add(targetPath.toLowerCase());
+
+      // Create app key from shortcut name
+      const appName = path.basename(lnkPath, ".lnk");
+      const appKey = `scanned_${appName.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}`;
+
+      apps[appKey] = {
+        path: targetPath,
+        enabled: true,
+        displayName: appName,
+        scanned: true,
+      };
+    }
+  }
+
+  return apps;
+}
 
 // Default application paths for Windows
 const DEFAULT_APP_PATHS = {
@@ -209,6 +430,7 @@ module.exports = {
   DEFAULT_APP_PATHS,
   findExecutable,
   detectInstalledApps,
+  getAllInstalledApps,
   getAppDisplayName,
   getCodeEditors,
 };

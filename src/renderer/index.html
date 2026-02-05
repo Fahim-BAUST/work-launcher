@@ -5,12 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:;"
     />
     <title>Work Launcher - Settings</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <!-- Splash Screen -->
+    <div id="splashScreen" class="splash-screen">
+      <div class="splash-content">
+        <div class="splash-logo">🚀</div>
+        <h1 class="splash-title">Work Launcher</h1>
+        <p class="splash-tagline">Launch your workflow with one click</p>
+        <div class="splash-loader"></div>
+        <div class="splash-credits">
+          <p class="splash-org">Shiftboolean</p>
+          <p class="splash-author">by Fahim Ashhab</p>
+        </div>
+      </div>
+    </div>
+
     <div class="container">
       <header>
         <div class="header-row">
@@ -22,198 +36,560 @@
         <p class="subtitle">Configure your startup applications</p>
       </header>
 
+      <!-- Tab Navigation -->
+      <nav class="tab-nav">
+        <button id="settingsTab" class="tab-btn active" data-tab="settings">
+          ⚙️ Settings
+        </button>
+        <button id="notesTab" class="tab-btn" data-tab="notes">📝 Notes</button>
+      </nav>
+
       <main>
-        <!-- Startup Settings Section -->
-        <section class="setting-section">
-          <h2>⚙️ Startup Settings</h2>
+        <!-- Settings Tab Panel -->
+        <div id="settingsPanel" class="tab-panel active">
+          <!-- Startup Settings Section -->
+          <section class="setting-section">
+            <h2>⚙️ Startup Settings</h2>
 
-          <div class="setting-row">
-            <div class="setting-info">
-              <h3>🔄 Run on Windows Startup</h3>
-              <p>Automatically start Work Launcher when your PC boots</p>
+            <div class="setting-row">
+              <div class="setting-info">
+                <h3>🔄 Run on Windows Startup</h3>
+                <p>Automatically start Work Launcher when your PC boots</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="autoLaunchToggle" />
+                <span class="slider"></span>
+              </label>
             </div>
-            <label class="switch">
-              <input type="checkbox" id="autoLaunchToggle" />
-              <span class="slider"></span>
-            </label>
-          </div>
 
-          <div class="setting-row">
-            <div class="setting-info">
-              <h3>❓ Ask Before Launching</h3>
-              <p>Show a confirmation dialog before launching apps on startup</p>
+            <div class="setting-row">
+              <div class="setting-info">
+                <h3>❓ Ask Before Launching</h3>
+                <p>
+                  Show a confirmation dialog before launching apps on startup
+                </p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="startupDialogToggle" />
+                <span class="slider"></span>
+              </label>
             </div>
-            <label class="switch">
-              <input type="checkbox" id="startupDialogToggle" />
-              <span class="slider"></span>
-            </label>
-          </div>
 
-          <div class="setting-row">
-            <div class="setting-info">
-              <h3>📥 Minimize to Tray</h3>
-              <p>Keep running in system tray when window is closed</p>
+            <div class="setting-row">
+              <div class="setting-info">
+                <h3>📥 Minimize to Tray</h3>
+                <p>Keep running in system tray when window is closed</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="minimizeToTrayToggle" />
+                <span class="slider"></span>
+              </label>
             </div>
-            <label class="switch">
-              <input type="checkbox" id="minimizeToTrayToggle" />
-              <span class="slider"></span>
-            </label>
-          </div>
-        </section>
+          </section>
 
-        <!-- Launch Settings Section -->
-        <section class="setting-section">
-          <h2>🚀 Launch Settings</h2>
+          <!-- Launch Settings Section -->
+          <section class="setting-section">
+            <h2>🚀 Launch Settings</h2>
 
-          <div class="setting-row">
-            <div class="setting-info">
-              <h3>⏱️ Launch Delay</h3>
-              <p>
-                Time between launching each app:
-                <strong id="delayValue">1000</strong>ms
-              </p>
+            <div class="setting-row">
+              <div class="setting-info">
+                <h3>⏱️ Launch Delay</h3>
+                <p>
+                  Time between launching each app:
+                  <strong id="delayValue">1000</strong>ms
+                </p>
+              </div>
+              <div class="slider-container">
+                <input
+                  type="range"
+                  id="launchDelaySlider"
+                  min="0"
+                  max="5000"
+                  step="100"
+                  value="1000"
+                />
+              </div>
             </div>
-            <div class="slider-container">
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <h3>⌨️ Global Shortcut</h3>
+                <p>
+                  Press
+                  <kbd id="shortcutDisplay">Ctrl+Shift+L</kbd>
+                  to launch all apps from anywhere
+                </p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="shortcutToggle" checked />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </section>
+
+          <!-- Profiles Section -->
+          <section class="setting-section profiles-section">
+            <div class="section-header">
+              <h2>📋 Launch Profiles</h2>
+              <button id="addProfileBtn" class="btn btn-success btn-sm">
+                ➕ New Profile
+              </button>
+            </div>
+            <p class="section-desc">
+              Save different app configurations for different work modes
+            </p>
+            <div id="profilesList" class="profiles-list">
+              <!-- Profiles will be dynamically inserted here -->
+            </div>
+          </section>
+
+          <!-- Applications list -->
+          <section class="apps-section">
+            <div class="section-header">
+              <h2>📱 Applications</h2>
+              <div class="header-buttons">
+                <button id="addAppBtn" class="btn btn-success btn-sm">
+                  ➕ Add App
+                </button>
+                <button id="detectAppsBtn" class="btn btn-secondary btn-sm">
+                  🔍 Re-detect
+                </button>
+              </div>
+            </div>
+
+            <div id="appsList" class="apps-list">
+              <!-- Apps will be dynamically inserted here -->
+            </div>
+
+            <p class="help-text" id="noAppsMessage" style="display: none">
+              No applications detected. Click "Re-detect Apps" to scan for
+              installed applications.
+            </p>
+          </section>
+
+          <!-- Action buttons (Settings Tab) -->
+          <section class="actions-section">
+            <button id="launchNowBtn" class="btn btn-primary btn-large">
+              🚀 Launch All Apps Now
+            </button>
+            <div class="btn-row">
+              <button id="saveBtn" class="btn btn-success">
+                💾 Save Settings
+              </button>
+              <button id="quitBtn" class="btn btn-danger">❌ Quit App</button>
+            </div>
+          </section>
+        </div>
+        <!-- End Settings Tab Panel -->
+
+        <!-- Notes Tab Panel -->
+        <div id="notesPanel" class="tab-panel">
+          <section class="notes-tab-section">
+            <div class="section-header">
+              <h2>📝 Notes</h2>
+              <div class="header-buttons">
+                <button
+                  id="deleteSelectedNotes"
+                  class="btn btn-danger btn-sm hidden"
+                  title="Delete Selected"
+                >
+                  🗑️ Delete Selected
+                </button>
+                <button id="addNoteBtn" class="btn btn-success btn-sm">
+                  ➕ New Note
+                </button>
+              </div>
+            </div>
+            <div class="notes-search-container">
               <input
-                type="range"
-                id="launchDelaySlider"
-                min="0"
-                max="5000"
-                step="100"
-                value="1000"
+                type="text"
+                id="notesSearchInput"
+                placeholder="🔍 Search notes..."
+                class="notes-search-input"
               />
             </div>
-          </div>
+            <div id="notesContainer" class="notes-container notes-expanded">
+              <div class="notes-layout">
+                <!-- Notes List -->
+                <div class="notes-list-panel">
+                  <div
+                    id="selectedNotesCount"
+                    class="selected-notes-count hidden"
+                  >
+                    0 selected
+                  </div>
+                  <div id="notesList" class="notes-list">
+                    <!-- Notes will be dynamically inserted here -->
+                  </div>
+                  <div id="noNotesMessage" class="no-notes-message">
+                    No notes yet. Click "New Note" to create one.
+                  </div>
+                </div>
 
-          <div class="setting-row">
-            <div class="setting-info">
-              <h3>⌨️ Global Shortcut</h3>
-              <p>
-                Press
-                <kbd id="shortcutDisplay">Ctrl+Shift+L</kbd>
-                to launch all apps from anywhere
-              </p>
+                <!-- Note Editor -->
+                <div id="noteEditorPanel" class="note-editor-panel">
+                  <div class="note-title-row">
+                    <input
+                      type="text"
+                      id="noteTitleInput"
+                      placeholder="Note title..."
+                      class="note-title-input"
+                    />
+                    <div class="note-title-actions">
+                      <button
+                        id="toggleEditModeBtn"
+                        class="btn btn-secondary btn-sm"
+                        title="Toggle Edit/Read Mode"
+                      >
+                        👁️ Read
+                      </button>
+                      <button
+                        id="deleteNoteBtn"
+                        class="btn btn-danger btn-sm"
+                        title="Delete Note"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Rich Text Toolbar (Edit Mode) -->
+                  <div id="editorToolbar" class="editor-toolbar">
+                    <!-- Undo/Redo -->
+                    <button
+                      type="button"
+                      data-command="undo"
+                      title="Undo (Ctrl+Z)"
+                    >
+                      ↩
+                    </button>
+                    <button
+                      type="button"
+                      data-command="redo"
+                      title="Redo (Ctrl+Y)"
+                    >
+                      ↪
+                    </button>
+                    <span class="toolbar-divider"></span>
+
+                    <!-- Basic Formatting -->
+                    <button
+                      type="button"
+                      data-command="bold"
+                      title="Bold (Ctrl+B)"
+                    >
+                      <strong>B</strong>
+                    </button>
+                    <button
+                      type="button"
+                      data-command="italic"
+                      title="Italic (Ctrl+I)"
+                    >
+                      <em>I</em>
+                    </button>
+                    <button
+                      type="button"
+                      data-command="underline"
+                      title="Underline (Ctrl+U)"
+                    >
+                      <u>U</u>
+                    </button>
+                    <button
+                      type="button"
+                      data-command="strikeThrough"
+                      title="Strikethrough"
+                    >
+                      <s>S</s>
+                    </button>
+                    <span class="toolbar-divider"></span>
+
+                    <!-- Font Size -->
+                    <select
+                      id="fontSizeSelect"
+                      class="toolbar-select"
+                      title="Font Size"
+                    >
+                      <option value="">Size</option>
+                      <option value="1">Small</option>
+                      <option value="3">Normal</option>
+                      <option value="5">Large</option>
+                      <option value="7">Huge</option>
+                    </select>
+                    <span class="toolbar-divider"></span>
+
+                    <!-- Headings -->
+                    <button
+                      type="button"
+                      data-command="formatBlock"
+                      data-value="h1"
+                      title="Heading 1"
+                    >
+                      H1
+                    </button>
+                    <button
+                      type="button"
+                      data-command="formatBlock"
+                      data-value="h2"
+                      title="Heading 2"
+                    >
+                      H2
+                    </button>
+                    <button
+                      type="button"
+                      data-command="formatBlock"
+                      data-value="h3"
+                      title="Heading 3"
+                    >
+                      H3
+                    </button>
+                    <button
+                      type="button"
+                      data-command="formatBlock"
+                      data-value="p"
+                      title="Paragraph"
+                    >
+                      P
+                    </button>
+                    <span class="toolbar-divider"></span>
+
+                    <!-- Lists -->
+                    <button
+                      type="button"
+                      data-command="insertUnorderedList"
+                      title="Bullet List"
+                    >
+                      •
+                    </button>
+                    <button
+                      type="button"
+                      data-command="insertOrderedList"
+                      title="Numbered List"
+                    >
+                      1.
+                    </button>
+                    <span class="toolbar-divider"></span>
+
+                    <!-- Alignment -->
+                    <button
+                      type="button"
+                      data-command="justifyLeft"
+                      title="Align Left"
+                      class="align-btn"
+                    >
+                      ☰
+                    </button>
+                    <button
+                      type="button"
+                      data-command="justifyCenter"
+                      title="Align Center"
+                      class="align-btn"
+                    >
+                      ☰
+                    </button>
+                    <button
+                      type="button"
+                      data-command="justifyRight"
+                      title="Align Right"
+                      class="align-btn"
+                    >
+                      ☰
+                    </button>
+                    <span class="toolbar-divider"></span>
+
+                    <!-- Indent -->
+                    <button
+                      type="button"
+                      data-command="outdent"
+                      title="Decrease Indent"
+                    >
+                      ⇤
+                    </button>
+                    <button
+                      type="button"
+                      data-command="indent"
+                      title="Increase Indent"
+                    >
+                      ⇥
+                    </button>
+                    <span class="toolbar-divider"></span>
+
+                    <!-- Special -->
+                    <button
+                      type="button"
+                      id="insertLinkBtn"
+                      title="Insert Link"
+                    >
+                      🔗
+                    </button>
+                    <button
+                      type="button"
+                      data-command="formatBlock"
+                      data-value="blockquote"
+                      title="Quote"
+                    >
+                      ❝
+                    </button>
+                    <button
+                      type="button"
+                      id="insertHrBtn"
+                      title="Horizontal Line"
+                    >
+                      ―
+                    </button>
+                    <button
+                      type="button"
+                      id="insertCodeBlockBtn"
+                      title="Code Block"
+                    >
+                      &lt;/&gt;
+                    </button>
+                    <span class="toolbar-divider"></span>
+
+                    <!-- Colors -->
+                    <div class="color-picker-wrapper">
+                      <button
+                        type="button"
+                        id="textColorBtn"
+                        title="Text Color"
+                      >
+                        A
+                      </button>
+                      <input
+                        type="color"
+                        id="textColorPicker"
+                        value="#00d4ff"
+                      />
+                    </div>
+                    <div class="color-picker-wrapper">
+                      <button type="button" id="highlightBtn" title="Highlight">
+                        🖍
+                      </button>
+                      <input
+                        type="color"
+                        id="highlightColorPicker"
+                        value="#ffff00"
+                      />
+                    </div>
+                    <span class="toolbar-divider"></span>
+
+                    <!-- Clear -->
+                    <button
+                      type="button"
+                      id="clearFormattingBtn"
+                      title="Clear Formatting"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <!-- Content Editable Editor (Edit Mode) -->
+                  <div
+                    id="noteEditor"
+                    class="note-editor"
+                    contenteditable="true"
+                    placeholder="Start writing your note..."
+                  ></div>
+
+                  <!-- Read-Only View (Read Mode) -->
+                  <div id="noteReadView" class="note-read-view hidden"></div>
+
+                  <div class="notes-footer">
+                    <span id="notesSaveStatus" class="notes-status"
+                      >✓ Saved</span
+                    >
+                    <span id="noteUpdatedAt" class="notes-updated"></span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <label class="switch">
-              <input type="checkbox" id="shortcutToggle" checked />
-              <span class="slider"></span>
-            </label>
-          </div>
-        </section>
-
-        <!-- Profiles Section -->
-        <section class="setting-section profiles-section">
-          <div class="section-header">
-            <h2>📋 Launch Profiles</h2>
-            <button id="addProfileBtn" class="btn btn-success btn-sm">
-              ➕ New Profile
-            </button>
-          </div>
-          <p class="section-desc">
-            Save different app configurations for different work modes
-          </p>
-          <div id="profilesList" class="profiles-list">
-            <!-- Profiles will be dynamically inserted here -->
-          </div>
-        </section>
-
-        <!-- Applications list -->
-        <section class="apps-section">
-          <div class="section-header">
-            <h2>📱 Applications</h2>
-            <div class="header-buttons">
-              <button id="addAppBtn" class="btn btn-success btn-sm">
-                ➕ Add App
-              </button>
-              <button id="detectAppsBtn" class="btn btn-secondary btn-sm">
-                🔍 Re-detect
-              </button>
-            </div>
-          </div>
-
-          <div id="appsList" class="apps-list">
-            <!-- Apps will be dynamically inserted here -->
-          </div>
-
-          <p class="help-text" id="noAppsMessage" style="display: none">
-            No applications detected. Click "Re-detect Apps" to scan for
-            installed applications.
-          </p>
-        </section>
-
-        <!-- Notes Section -->
-        <section class="setting-section notes-section">
-          <div class="section-header">
-            <h2>📝 Quick Notes</h2>
-            <button
-              id="toggleNotesBtn"
-              class="btn btn-icon btn-sm"
-              title="Expand/Collapse"
-            >
-              ▼
-            </button>
-          </div>
-          <div id="notesContainer" class="notes-container">
-            <textarea
-              id="notesTextarea"
-              placeholder="Write your notes here... (auto-saves)"
-              rows="4"
-            ></textarea>
-            <div class="notes-footer">
-              <span id="notesSaveStatus" class="notes-status">✓ Saved</span>
-              <span id="notesCharCount" class="notes-char-count"
-                >0 characters</span
-              >
-            </div>
-          </div>
-        </section>
-
-        <!-- Action buttons -->
-        <section class="actions-section">
-          <button id="launchNowBtn" class="btn btn-primary btn-large">
-            🚀 Launch All Apps Now
-          </button>
-          <div class="btn-row">
-            <button id="saveBtn" class="btn btn-success">
-              💾 Save Settings
-            </button>
-            <button id="quitBtn" class="btn btn-danger">❌ Quit App</button>
-          </div>
-        </section>
+          </section>
+        </div>
+        <!-- End Notes Tab Panel -->
       </main>
 
-      <footer>
-        <p>
+      <footer class="app-footer">
+        <div class="footer-tip">
           ℹ️ Tip: The app runs in the system tray. Click the tray icon for quick
           access.
-        </p>
+        </div>
+        <div class="footer-credits">
+          <span class="footer-app">Work Launcher v1.0.0</span>
+          <span class="footer-divider">•</span>
+          <span class="footer-org">Shiftboolean</span>
+          <span class="footer-divider">•</span>
+          <span class="footer-author">Fahim Ashhab</span>
+          <span class="footer-divider">•</span>
+          <span class="footer-email">f.ashhab@shiftboolean.com</span>
+        </div>
       </footer>
     </div>
 
     <!-- Add App Modal -->
     <div id="addAppModal" class="modal hidden">
-      <div class="modal-content">
+      <div class="modal-content modal-content-large">
         <div class="modal-header">
-          <h3>➕ Add Custom Application</h3>
+          <h3>➕ Add Application</h3>
           <button id="closeModalBtn" class="btn-close">&times;</button>
         </div>
         <div class="modal-body">
-          <div class="form-group">
-            <label for="customAppName">Application Name</label>
-            <input type="text" id="customAppName" placeholder="e.g., My App" />
+          <!-- Tab selection for add method -->
+          <div class="add-app-tabs">
+            <button id="selectFromListTab" class="add-app-tab active">
+              📋 Select from Installed
+            </button>
+            <button id="browseManualTab" class="add-app-tab">
+              📁 Browse Manually
+            </button>
           </div>
-          <div class="form-group">
-            <label for="customAppPath">Executable Path</label>
-            <div class="path-input-row">
+
+          <!-- Select from installed apps panel -->
+          <div id="selectFromListPanel" class="add-app-panel active">
+            <div class="installed-apps-search">
               <input
                 type="text"
-                id="customAppPath"
-                placeholder="C:\Path\to\app.exe"
-                readonly
+                id="installedAppsSearch"
+                placeholder="🔍 Search installed apps..."
               />
-              <button id="browseBtn" class="btn btn-secondary">
-                📁 Browse
-              </button>
+            </div>
+            <div id="installedAppsLoading" class="installed-apps-loading">
+              <span class="loading-spinner"></span>
+              <span>Scanning installed apps...</span>
+            </div>
+            <div id="installedAppsList" class="installed-apps-list">
+              <!-- Installed apps will be populated here -->
+            </div>
+            <p
+              id="noInstalledAppsMsg"
+              class="no-apps-msg"
+              style="display: none"
+            >
+              No installed apps found. Try browsing manually.
+            </p>
+          </div>
+
+          <!-- Manual browse panel -->
+          <div id="browseManualPanel" class="add-app-panel">
+            <div class="form-group">
+              <label for="customAppName">Application Name</label>
+              <input
+                type="text"
+                id="customAppName"
+                placeholder="e.g., My App"
+              />
+            </div>
+            <div class="form-group">
+              <label for="customAppPath">Executable Path</label>
+              <div class="path-input-row">
+                <input
+                  type="text"
+                  id="customAppPath"
+                  placeholder="C:\Path\to\app.exe"
+                  readonly
+                />
+                <button id="browseBtn" class="btn btn-secondary">
+                  📁 Browse
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -260,6 +636,51 @@
     <!-- Status notification -->
     <div id="notification" class="notification hidden">
       <span id="notificationText"></span>
+    </div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="confirmModal" class="modal hidden">
+      <div class="modal-content" style="max-width: 350px">
+        <div class="modal-header">
+          <h3 id="confirmModalTitle">Confirm</h3>
+        </div>
+        <div class="modal-body">
+          <p id="confirmModalMessage">Are you sure?</p>
+        </div>
+        <div class="modal-footer">
+          <button id="confirmModalCancel" class="btn btn-secondary">
+            Cancel
+          </button>
+          <button id="confirmModalOk" class="btn btn-danger">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Image Lightbox Modal -->
+    <div id="imageLightbox" class="lightbox hidden">
+      <div id="lightboxBackdrop" class="lightbox-backdrop"></div>
+      <div class="lightbox-content">
+        <button id="closeLightbox" class="lightbox-close">&times;</button>
+        <div class="lightbox-controls">
+          <button id="zoomOutBtn" class="lightbox-zoom-btn" title="Zoom Out">
+            −
+          </button>
+          <span id="zoomLevel">100%</span>
+          <button id="zoomInBtn" class="lightbox-zoom-btn" title="Zoom In">
+            +
+          </button>
+          <button
+            id="zoomResetBtn"
+            class="lightbox-zoom-btn"
+            title="Reset Zoom"
+          >
+            ↺
+          </button>
+        </div>
+        <div class="lightbox-image-container" id="lightboxImageContainer">
+          <img id="lightboxImage" src="" alt="Preview" />
+        </div>
+      </div>
     </div>
 
     <script src="renderer.js"></script>

@@ -11,6 +11,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Detect installed apps
   detectApps: () => ipcRenderer.invoke("detect-apps"),
 
+  // Get all available/installed apps (for add app modal)
+  getAvailableApps: () => ipcRenderer.invoke("get-available-apps"),
+
   // Get auto-launch status
   getAutoLaunchStatus: () => ipcRenderer.invoke("get-autolaunch-status"),
 
@@ -91,7 +94,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // Notes
   getNotes: () => ipcRenderer.invoke("get-notes"),
-  saveNotes: (notes) => ipcRenderer.invoke("save-notes", notes),
+  getActiveNoteId: () => ipcRenderer.invoke("get-active-note-id"),
+  setActiveNoteId: (noteId) => ipcRenderer.invoke("set-active-note-id", noteId),
+  createNote: (note) => ipcRenderer.invoke("create-note", note),
+  updateNote: (id, title, content) =>
+    ipcRenderer.invoke("update-note", { id, title, content }),
+  deleteNote: (noteId) => ipcRenderer.invoke("delete-note", noteId),
 
   // Quit app
   quitApp: () => ipcRenderer.invoke("quit-app"),

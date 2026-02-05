@@ -18,6 +18,7 @@ const {
 } = require("./appLauncher");
 const {
   detectInstalledApps,
+  getAllInstalledApps,
   getAppDisplayName,
   findExecutable,
   DEFAULT_APP_PATHS,
@@ -121,7 +122,8 @@ const store = new Store({
     launchDelay: 1000,
     globalShortcut: "CommandOrControl+Shift+L",
     shortcutEnabled: true,
-    notes: "",
+    notes: [],
+    activeNoteId: null,
   },
 });
 
@@ -146,9 +148,11 @@ app.on("second-instance", () => {
  */
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 700,
-    height: 850,
-    resizable: false,
+    width: 750,
+    height: 950,
+    resizable: true,
+    minWidth: 650,
+    minHeight: 700,
     icon: getAssetPath("icon.ico"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -421,6 +425,11 @@ function setupIpcHandlers() {
     const detected = detectInstalledApps();
     store.set("apps", detected);
     return detected;
+  });
+
+  // Get all available apps (for add app modal) - scans Start Menu
+  ipcMain.handle("get-available-apps", () => {
+    return getAllInstalledApps();
   });
 
   // Get auto-launch status
@@ -717,13 +726,69 @@ function setupIpcHandlers() {
   });
 
   // Notes management
+  // Helper to ensure notes is always an array (migration from old string format)
+  function getNotesArray() {
+    const notes = store.get("notes");
+    if (!Array.isArray(notes)) {
+      // Migrate old string format to new array format
+      const newNotes = [];
+      if (typeof notes === "string" && notes.trim()) {
+        newNotes.push({
+          id: `note_migrated_${Date.now()}`,
+          title: "Migrated Note",
+          content: `<p>${notes.replace(/\n/g, "</p><p>")}</p>`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
+      store.set("notes", newNotes);
+      return newNotes;
+    }
+    return notes;
+  }
+
   ipcMain.handle("get-notes", () => {
-    return store.get("notes", "");
+    return getNotesArray();
   });
 
-  ipcMain.handle("save-notes", (event, notes) => {
+  ipcMain.handle("get-active-note-id", () => {
+    return store.get("activeNoteId", null);
+  });
+
+  ipcMain.handle("set-active-note-id", (event, noteId) => {
+    store.set("activeNoteId", noteId);
+    return noteId;
+  });
+
+  ipcMain.handle("create-note", (event, note) => {
+    const notes = getNotesArray();
+    notes.unshift(note);
     store.set("notes", notes);
-    return true;
+    store.set("activeNoteId", note.id);
+    return notes;
+  });
+
+  ipcMain.handle("update-note", (event, { id, title, content }) => {
+    const notes = getNotesArray();
+    const index = notes.findIndex((n) => n.id === id);
+    if (index !== -1) {
+      notes[index].title = title;
+      notes[index].content = content;
+      notes[index].updatedAt = new Date().toISOString();
+      store.set("notes", notes);
+    }
+    return notes;
+  });
+
+  ipcMain.handle("delete-note", (event, noteId) => {
+    let notes = getNotesArray();
+    notes = notes.filter((n) => n.id !== noteId);
+    store.set("notes", notes);
+    const activeNoteId = store.get("activeNoteId");
+    if (activeNoteId === noteId) {
+      store.set("activeNoteId", notes.length > 0 ? notes[0].id : null);
+    }
+    return notes;
   });
 
   // Quit app completely

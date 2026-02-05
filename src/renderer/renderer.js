@@ -1,4 +1,5 @@
 // DOM Elements
+const splashScreen = document.getElementById("splashScreen");
 const autoLaunchToggle = document.getElementById("autoLaunchToggle");
 const startupDialogToggle = document.getElementById("startupDialogToggle");
 const minimizeToTrayToggle = document.getElementById("minimizeToTrayToggle");
@@ -36,12 +37,42 @@ const delayValue = document.getElementById("delayValue");
 const shortcutToggle = document.getElementById("shortcutToggle");
 const shortcutDisplay = document.getElementById("shortcutDisplay");
 
+// Tab Navigation DOM Elements
+const settingsTab = document.getElementById("settingsTab");
+const notesTab = document.getElementById("notesTab");
+const settingsPanel = document.getElementById("settingsPanel");
+const notesPanel = document.getElementById("notesPanel");
+
 // Notes DOM Elements
-const toggleNotesBtn = document.getElementById("toggleNotesBtn");
 const notesContainer = document.getElementById("notesContainer");
-const notesTextarea = document.getElementById("notesTextarea");
+const notesList = document.getElementById("notesList");
+const noNotesMessage = document.getElementById("noNotesMessage");
+const noteEditorPanel = document.getElementById("noteEditorPanel");
+const noteTitleInput = document.getElementById("noteTitleInput");
+const noteEditor = document.getElementById("noteEditor");
+const noteReadView = document.getElementById("noteReadView");
+const editorToolbar = document.getElementById("editorToolbar");
+const toggleEditModeBtn = document.getElementById("toggleEditModeBtn");
 const notesSaveStatus = document.getElementById("notesSaveStatus");
-const notesCharCount = document.getElementById("notesCharCount");
+const noteUpdatedAt = document.getElementById("noteUpdatedAt");
+const addNoteBtn = document.getElementById("addNoteBtn");
+const deleteNoteBtn = document.getElementById("deleteNoteBtn");
+
+// Edit mode state
+let isEditMode = true;
+
+// Image Lightbox DOM Elements
+const imageLightbox = document.getElementById("imageLightbox");
+const lightboxBackdrop = document.getElementById("lightboxBackdrop");
+const lightboxImage = document.getElementById("lightboxImage");
+const lightboxImageContainer = document.getElementById(
+  "lightboxImageContainer",
+);
+const closeLightbox = document.getElementById("closeLightbox");
+const zoomInBtn = document.getElementById("zoomInBtn");
+const zoomOutBtn = document.getElementById("zoomOutBtn");
+const zoomResetBtn = document.getElementById("zoomResetBtn");
+const zoomLevelDisplay = document.getElementById("zoomLevel");
 
 // Current apps configuration
 let currentApps = {};
@@ -51,8 +82,9 @@ let currentProfiles = {};
 let activeProfileId = "default";
 let editingProfileId = null;
 let notesDebounceTimer = null;
-let notesExpanded = true;
 let draggedItem = null;
+let currentNotes = [];
+let activeNoteId = null;
 
 // App display names mapping
 const appDisplayNames = {
@@ -100,14 +132,60 @@ const appIcons = {
   spotify: "🎵",
 };
 
+// Custom confirm modal elements
+const confirmModal = document.getElementById("confirmModal");
+const confirmModalTitle = document.getElementById("confirmModalTitle");
+const confirmModalMessage = document.getElementById("confirmModalMessage");
+const confirmModalCancel = document.getElementById("confirmModalCancel");
+const confirmModalOk = document.getElementById("confirmModalOk");
+
+let confirmResolve = null;
+
+/**
+ * Show custom confirm dialog (returns Promise)
+ */
+function showConfirm(message, title = "Confirm") {
+  return new Promise((resolve) => {
+    confirmResolve = resolve;
+    confirmModalTitle.textContent = title;
+    confirmModalMessage.textContent = message;
+    confirmModal.classList.remove("hidden");
+    confirmModalOk.focus();
+  });
+}
+
+// Confirm modal event handlers
+confirmModalOk.addEventListener("click", () => {
+  confirmModal.classList.add("hidden");
+  if (confirmResolve) confirmResolve(true);
+  confirmResolve = null;
+});
+
+confirmModalCancel.addEventListener("click", () => {
+  confirmModal.classList.add("hidden");
+  if (confirmResolve) confirmResolve(false);
+  confirmResolve = null;
+});
+
+// Close modal when clicking backdrop (the modal itself, not its content)
+confirmModal.addEventListener("click", (e) => {
+  if (e.target === confirmModal) {
+    confirmModal.classList.add("hidden");
+    if (confirmResolve) confirmResolve(false);
+    confirmResolve = null;
+  }
+});
+
 /**
  * Show notification message
  */
-function showNotification(message, isError = false) {
+function showNotification(message, type = "success") {
   notificationText.textContent = message;
-  notification.classList.remove("hidden", "error");
-  if (isError) {
+  notification.classList.remove("hidden", "error", "warning");
+  if (type === "error" || type === true) {
     notification.classList.add("error");
+  } else if (type === "warning") {
+    notification.classList.add("warning");
   }
 
   setTimeout(() => {
@@ -176,11 +254,10 @@ function renderAppsList(apps) {
     appItem.dataset.appKey = key;
     appItem.draggable = true;
 
-    const isCustom = config.isCustom;
-    const icon = isCustom ? "📦" : appIcons[key] || "📦";
-    const displayName = isCustom
-      ? config.customName
-      : appDisplayNames[key] || key;
+    // Check if it's a custom/scanned app or a pre-defined one
+    const isCustomOrScanned = config.isCustom || key.startsWith("scanned_");
+    const icon = isCustomOrScanned ? "📦" : appIcons[key] || "📦";
+    const displayName = config.customName || appDisplayNames[key] || key;
 
     // Add special note for Hubstaff
     let extraInfo = "";
@@ -189,8 +266,8 @@ function renderAppsList(apps) {
     }
 
     // Badge type
-    const badgeClass = isCustom ? "custom" : "detected";
-    const badgeText = isCustom ? "Custom" : "Detected";
+    const badgeClass = isCustomOrScanned ? "custom" : "detected";
+    const badgeText = isCustomOrScanned ? "Custom" : "Detected";
 
     appItem.innerHTML = `
       <div class="drag-handle" title="Drag to reorder">⋮⋮</div>
@@ -201,7 +278,7 @@ function renderAppsList(apps) {
       </div>
       <div class="app-status">
         <span class="status-badge ${badgeClass}">${badgeText}</span>
-        ${isCustom ? `<button class="btn-remove" data-app="${key}" title="Remove">🗑️</button>` : ""}
+        ${isCustomOrScanned ? `<button class="btn-remove" data-app="${key}" title="Remove">🗑️</button>` : ""}
         <label class="switch">
           <input type="checkbox" data-app="${key}" ${config.enabled ? "checked" : ""}>
           <span class="slider"></span>
@@ -234,9 +311,9 @@ function renderAppsList(apps) {
   document.querySelectorAll(".btn-remove").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
       const appKey = e.target.dataset.app;
-      if (
-        confirm(`Remove "${currentApps[appKey].customName}" from the list?`)
-      ) {
+      const appName =
+        currentApps[appKey].customName || appDisplayNames[appKey] || appKey;
+      if (confirm(`Remove "${appName}" from the list?`)) {
         currentApps = await window.electronAPI.removeApp(appKey);
         renderAppsList(currentApps);
         showNotification("App removed");
@@ -483,9 +560,16 @@ async function init() {
     );
 
     // Load notes
-    const savedNotes = await window.electronAPI.getNotes();
-    notesTextarea.value = savedNotes;
-    notesCharCount.textContent = `${savedNotes.length} characters`;
+    currentNotes = await window.electronAPI.getNotes();
+    activeNoteId = await window.electronAPI.getActiveNoteId();
+    renderNotesList();
+    if (activeNoteId) {
+      loadNoteToEditor(activeNoteId);
+    } else if (currentNotes.length > 0) {
+      loadNoteToEditor(currentNotes[0].id);
+    } else {
+      showEmptyEditor();
+    }
 
     // Listen for profile changes from tray menu
     window.electronAPI.onProfileChanged(async (profileId) => {
@@ -495,9 +579,16 @@ async function init() {
       renderAppsList(currentApps);
       renderProfilesList(currentProfiles, activeProfileId);
     });
+
+    // Hide splash screen after initialization (4 seconds)
+    setTimeout(() => {
+      splashScreen.classList.add("hidden");
+    }, 4000);
   } catch (error) {
     console.error("Failed to initialize:", error);
     showNotification("Failed to load settings", true);
+    // Hide splash even on error
+    splashScreen.classList.add("hidden");
   }
 }
 
@@ -651,46 +742,1019 @@ shortcutToggle.addEventListener("change", async (e) => {
   }
 });
 
-// Notes toggle expand/collapse
-toggleNotesBtn.addEventListener("click", () => {
-  notesExpanded = !notesExpanded;
-  notesContainer.classList.toggle("collapsed", !notesExpanded);
-  toggleNotesBtn.textContent = notesExpanded ? "▼" : "▶";
+// ========== Notes Feature ==========
+
+// Notes state variables
+let selectedNoteIds = new Set();
+let notesSearchQuery = "";
+
+// Notes DOM elements for search and multi-select
+const notesSearchInput = document.getElementById("notesSearchInput");
+const deleteSelectedNotes = document.getElementById("deleteSelectedNotes");
+const selectedNotesCount = document.getElementById("selectedNotesCount");
+
+// Render the notes list
+function renderNotesList() {
+  notesList.innerHTML = "";
+
+  // Filter notes based on search query
+  let filteredNotes = currentNotes;
+  if (notesSearchQuery) {
+    const query = notesSearchQuery.toLowerCase();
+    filteredNotes = currentNotes.filter((note) => {
+      const title = (note.title || "").toLowerCase();
+      const content = stripHtml(note.content || "").toLowerCase();
+      return title.includes(query) || content.includes(query);
+    });
+  }
+
+  if (filteredNotes.length === 0) {
+    noNotesMessage.style.display = "block";
+    noNotesMessage.textContent = notesSearchQuery
+      ? "No notes match your search."
+      : 'No notes yet. Click "New Note" to create one.';
+    if (currentNotes.length === 0) {
+      noteEditorPanel.style.display = "none";
+    }
+    return;
+  }
+
+  noNotesMessage.style.display = "none";
+  if (currentNotes.length > 0) {
+    noteEditorPanel.style.display = "flex";
+  }
+
+  filteredNotes.forEach((note) => {
+    const noteItem = document.createElement("div");
+    const isSelected = selectedNoteIds.has(note.id);
+    noteItem.className = `note-item ${note.id === activeNoteId ? "active" : ""} ${isSelected ? "selected" : ""}`;
+    noteItem.dataset.noteId = note.id;
+
+    const preview = stripHtml(note.content).substring(0, 50);
+    const date = new Date(note.updatedAt || note.createdAt);
+    const dateStr = date.toLocaleDateString();
+
+    noteItem.innerHTML = `
+      <input type="checkbox" class="note-item-checkbox" ${isSelected ? "checked" : ""} />
+      <div class="note-item-title" title="${(note.title || "Untitled").replace(/"/g, "&quot;")}">${note.title || "Untitled"}</div>
+      <div class="note-item-preview" title="${(preview || "No content").replace(/"/g, "&quot;")}">${preview || "No content"}...</div>
+      <div class="note-item-date">${dateStr}</div>
+    `;
+
+    // Checkbox click handler
+    const checkbox = noteItem.querySelector(".note-item-checkbox");
+    checkbox.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (checkbox.checked) {
+        selectedNoteIds.add(note.id);
+        noteItem.classList.add("selected");
+      } else {
+        selectedNoteIds.delete(note.id);
+        noteItem.classList.remove("selected");
+      }
+      updateSelectedCount();
+    });
+
+    // Note item click handler - clicking loads the note
+    noteItem.addEventListener("click", (e) => {
+      if (e.target !== checkbox && note.id !== activeNoteId) {
+        saveCurrentNote();
+        loadNoteToEditor(note.id);
+      }
+    });
+
+    notesList.appendChild(noteItem);
+  });
+}
+
+// Update selected count display
+function updateSelectedCount() {
+  const count = selectedNoteIds.size;
+  selectedNotesCount.textContent = `${count} selected`;
+  selectedNotesCount.classList.toggle("hidden", count === 0);
+  deleteSelectedNotes.classList.toggle("hidden", count === 0);
+}
+
+// Strip HTML for preview
+function stripHtml(html) {
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || "";
+}
+
+// Load note into editor
+function loadNoteToEditor(noteId) {
+  const note = currentNotes.find((n) => n.id === noteId);
+  if (!note) return;
+
+  activeNoteId = noteId;
+  window.electronAPI.setActiveNoteId(noteId);
+
+  // Make sure editor panel is visible
+  noteEditorPanel.style.display = "flex";
+
+  // Default to Read mode when loading an existing note
+  isEditMode = false;
+  toggleEditModeBtn.textContent = "✏️ Edit";
+  toggleEditModeBtn.title = "Switch to Edit Mode";
+  noteEditor.classList.add("hidden");
+  editorToolbar.classList.add("hidden");
+  noteReadView.classList.remove("hidden");
+  notesSaveStatus.classList.add("hidden");
+  noteTitleInput.readOnly = true;
+
+  // Ensure fields are enabled for editing (but title will be readonly in read mode)
+  noteTitleInput.disabled = false;
+  noteEditor.contentEditable = "true";
+
+  noteTitleInput.value = note.title || "";
+  noteEditor.innerHTML = note.content || "";
+  noteReadView.innerHTML = note.content || "";
+
+  if (note.updatedAt) {
+    const date = new Date(note.updatedAt);
+    noteUpdatedAt.textContent = `Last updated: ${date.toLocaleString()}`;
+  } else {
+    noteUpdatedAt.textContent = "";
+  }
+
+  notesSaveStatus.textContent = "✓ Saved";
+  notesSaveStatus.classList.remove("warning", "error");
+
+  // Update active state in list
+  document.querySelectorAll(".note-item").forEach((item) => {
+    item.classList.toggle("active", item.dataset.noteId === noteId);
+  });
+
+  // Wrap images with resize handles
+  setTimeout(wrapImagesWithResizeHandles, 100);
+}
+
+// Show empty editor state
+function showEmptyEditor() {
+  noteEditorPanel.style.display = "none";
+}
+
+// Save current note
+async function saveCurrentNote() {
+  if (!activeNoteId) return;
+
+  const title = noteTitleInput.value.trim();
+  const content = noteEditor.innerHTML;
+  const contentText = stripHtml(content).trim();
+
+  // Don't save empty notes - just skip silently
+  if (!title && !contentText) {
+    notesSaveStatus.textContent = "";
+    notesSaveStatus.classList.remove("saving", "warning");
+    return;
+  }
+
+  try {
+    currentNotes = await window.electronAPI.updateNote(
+      activeNoteId,
+      title,
+      content,
+    );
+    notesSaveStatus.textContent = "✓ Saved";
+    notesSaveStatus.classList.remove("saving", "warning");
+    renderNotesList();
+  } catch (error) {
+    console.error("Failed to save note:", error);
+    notesSaveStatus.textContent = "❌ Error";
+    notesSaveStatus.classList.add("error");
+  }
+}
+
+// Check if current note is empty (for reference only)
+function isCurrentNoteEmpty() {
+  if (!activeNoteId) return false;
+  const title = noteTitleInput.value.trim();
+  const content = noteEditor.innerHTML;
+  const contentText = stripHtml(content).trim();
+  return !title && !contentText;
+}
+
+// Create new note
+async function createNewNote() {
+  // Save current note first if it exists
+  if (activeNoteId) {
+    await saveCurrentNote();
+  }
+
+  const newNote = {
+    id: `note_${Date.now()}`,
+    title: "",
+    content: "",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  currentNotes = await window.electronAPI.createNote(newNote);
+  activeNoteId = newNote.id;
+  renderNotesList();
+  loadNoteToEditor(newNote.id);
+
+  // Switch to Edit mode for new notes
+  isEditMode = true;
+  toggleEditModeBtn.textContent = "👁️ Read";
+  toggleEditModeBtn.title = "Switch to Read Mode";
+  noteEditor.classList.remove("hidden");
+  editorToolbar.classList.remove("hidden");
+  noteReadView.classList.add("hidden");
+  notesSaveStatus.classList.remove("hidden");
+  noteTitleInput.readOnly = false;
+
+  noteTitleInput.focus();
+}
+
+// Delete current note
+async function deleteCurrentNote() {
+  if (!activeNoteId) return;
+
+  const note = currentNotes.find((n) => n.id === activeNoteId);
+  const title = note?.title || "Untitled";
+
+  // Use custom confirm modal instead of native confirm
+  const confirmed = await showConfirm(
+    `Are you sure you want to delete "${title}"?`,
+    "Delete Note",
+  );
+  if (!confirmed) return;
+
+  const deletedNoteId = activeNoteId;
+  activeNoteId = null;
+
+  currentNotes = await window.electronAPI.deleteNote(deletedNoteId);
+  renderNotesList();
+
+  if (currentNotes.length > 0) {
+    loadNoteToEditor(currentNotes[0].id);
+  } else {
+    showEmptyEditor();
+  }
+
+  // Restore focus to the app
+  setTimeout(() => {
+    if (currentNotes.length > 0) {
+      noteTitleInput.focus();
+    } else {
+      notesSearchInput.focus();
+    }
+  }, 100);
+
+  showNotification("Note deleted");
+}
+
+// Tab switching functionality
+function switchTab(tabName) {
+  // Update tab buttons
+  settingsTab.classList.toggle("active", tabName === "settings");
+  notesTab.classList.toggle("active", tabName === "notes");
+
+  // Update tab panels
+  settingsPanel.classList.toggle("active", tabName === "settings");
+  notesPanel.classList.toggle("active", tabName === "notes");
+}
+
+settingsTab.addEventListener("click", () => switchTab("settings"));
+notesTab.addEventListener("click", () => switchTab("notes"));
+
+// Add note button
+addNoteBtn.addEventListener("click", createNewNote);
+
+// Delete note button
+deleteNoteBtn.addEventListener("click", deleteCurrentNote);
+
+// Toggle Edit/Read mode
+toggleEditModeBtn.addEventListener("click", () => {
+  isEditMode = !isEditMode;
+
+  if (isEditMode) {
+    // Switch to Edit mode
+    toggleEditModeBtn.textContent = "👁️ Read";
+    toggleEditModeBtn.title = "Switch to Read Mode";
+    noteEditor.classList.remove("hidden");
+    editorToolbar.classList.remove("hidden");
+    noteReadView.classList.add("hidden");
+    noteTitleInput.readOnly = false;
+    notesSaveStatus.classList.remove("hidden");
+    // Apply resize handles to images
+    setTimeout(wrapImagesWithResizeHandles, 100);
+  } else {
+    // Switch to Read mode - save first
+    saveCurrentNote();
+    toggleEditModeBtn.textContent = "✏️ Edit";
+    toggleEditModeBtn.title = "Switch to Edit Mode";
+    noteEditor.classList.add("hidden");
+    editorToolbar.classList.add("hidden");
+    noteReadView.classList.remove("hidden");
+    noteReadView.innerHTML = noteEditor.innerHTML;
+    noteTitleInput.readOnly = true;
+    notesSaveStatus.classList.add("hidden");
+  }
 });
 
-// Notes textarea - auto-save with debounce
-notesTextarea.addEventListener("input", () => {
-  // Update character count
-  notesCharCount.textContent = `${notesTextarea.value.length} characters`;
+// Search notes
+notesSearchInput.addEventListener("input", (e) => {
+  notesSearchQuery = e.target.value.trim();
+  renderNotesList();
+});
 
-  // Show saving status
+// Delete selected notes
+deleteSelectedNotes.addEventListener("click", async () => {
+  const count = selectedNoteIds.size;
+  if (count === 0) return;
+
+  const confirmed = await showConfirm(
+    `Are you sure you want to delete ${count} selected note${count > 1 ? "s" : ""}?`,
+    "Delete Notes",
+  );
+  if (!confirmed) return;
+
+  // Delete all selected notes
+  for (const noteId of selectedNoteIds) {
+    currentNotes = await window.electronAPI.deleteNote(noteId);
+  }
+
+  // Clear selection
+  selectedNoteIds.clear();
+  updateSelectedCount();
+
+  // Update active note if it was deleted
+  if (!currentNotes.find((n) => n.id === activeNoteId)) {
+    if (currentNotes.length > 0) {
+      loadNoteToEditor(currentNotes[0].id);
+    } else {
+      activeNoteId = null;
+      showEmptyEditor();
+    }
+  }
+
+  renderNotesList();
+  showNotification(`${count} note${count > 1 ? "s" : ""} deleted`);
+});
+
+// Note title input - auto-save with debounce
+noteTitleInput.addEventListener("input", () => {
   notesSaveStatus.textContent = "⏳ Saving...";
   notesSaveStatus.classList.add("saving");
 
-  // Debounce save
   clearTimeout(notesDebounceTimer);
-  notesDebounceTimer = setTimeout(async () => {
-    try {
-      await window.electronAPI.saveNotes(notesTextarea.value);
-      notesSaveStatus.textContent = "✓ Saved";
-      notesSaveStatus.classList.remove("saving");
-    } catch (error) {
-      console.error("Failed to save notes:", error);
-      notesSaveStatus.textContent = "❌ Error saving";
-      notesSaveStatus.classList.remove("saving");
-    }
-  }, 500);
+  notesDebounceTimer = setTimeout(saveCurrentNote, 500);
 });
 
+// Note editor - auto-save with debounce
+noteEditor.addEventListener("input", () => {
+  notesSaveStatus.textContent = "⏳ Saving...";
+  notesSaveStatus.classList.add("saving");
+
+  clearTimeout(notesDebounceTimer);
+  notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+});
+
+// Rich text toolbar commands
+document
+  .querySelectorAll(".editor-toolbar button[data-command]")
+  .forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const command = btn.dataset.command;
+      const value = btn.dataset.value || null;
+
+      if (command === "formatBlock") {
+        document.execCommand(command, false, `<${value}>`);
+      } else {
+        document.execCommand(command, false, value);
+      }
+
+      noteEditor.focus();
+
+      // Trigger save after formatting
+      notesSaveStatus.textContent = "⏳ Saving...";
+      notesSaveStatus.classList.add("saving");
+      clearTimeout(notesDebounceTimer);
+      notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+    });
+  });
+
+// Code block button handler
+document.getElementById("insertCodeBlockBtn").addEventListener("click", (e) => {
+  e.preventDefault();
+
+  const selection = window.getSelection();
+  const selectedText = selection.toString() || "// Your code here";
+
+  // Create code block element
+  const pre = document.createElement("pre");
+  const code = document.createElement("code");
+  code.textContent = selectedText;
+  pre.appendChild(code);
+
+  // Insert at cursor position
+  if (selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(pre);
+
+    // Move cursor after the code block
+    range.setStartAfter(pre);
+    range.setEndAfter(pre);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  } else {
+    noteEditor.appendChild(pre);
+  }
+
+  noteEditor.focus();
+
+  // Trigger save
+  notesSaveStatus.textContent = "⏳ Saving...";
+  notesSaveStatus.classList.add("saving");
+  clearTimeout(notesDebounceTimer);
+  notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+});
+
+// Text color picker handler
+const textColorBtn = document.getElementById("textColorBtn");
+const textColorPicker = document.getElementById("textColorPicker");
+
+textColorBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  textColorPicker.click();
+});
+
+textColorPicker.addEventListener("input", (e) => {
+  const color = e.target.value;
+
+  // Update button indicator color
+  textColorBtn.style.borderBottomColor = color;
+
+  // Apply color to selected text
+  document.execCommand("foreColor", false, color);
+
+  noteEditor.focus();
+
+  // Trigger save
+  notesSaveStatus.textContent = "⏳ Saving...";
+  notesSaveStatus.classList.add("saving");
+  clearTimeout(notesDebounceTimer);
+  notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+});
+
+// Highlight color picker handler
+const highlightBtn = document.getElementById("highlightBtn");
+const highlightColorPicker = document.getElementById("highlightColorPicker");
+
+highlightBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  highlightColorPicker.click();
+});
+
+highlightColorPicker.addEventListener("input", (e) => {
+  const color = e.target.value;
+  document.execCommand("hiliteColor", false, color);
+  noteEditor.focus();
+
+  // Trigger save
+  notesSaveStatus.textContent = "⏳ Saving...";
+  notesSaveStatus.classList.add("saving");
+  clearTimeout(notesDebounceTimer);
+  notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+});
+
+// Font size select handler
+document.getElementById("fontSizeSelect").addEventListener("change", (e) => {
+  const size = e.target.value;
+  if (size) {
+    document.execCommand("fontSize", false, size);
+    noteEditor.focus();
+
+    // Trigger save
+    notesSaveStatus.textContent = "⏳ Saving...";
+    notesSaveStatus.classList.add("saving");
+    clearTimeout(notesDebounceTimer);
+    notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+  }
+  e.target.value = ""; // Reset select
+});
+
+// Insert link handler
+document
+  .getElementById("insertLinkBtn")
+  .addEventListener("click", async (e) => {
+    e.preventDefault();
+
+    const selection = window.getSelection();
+    const selectedText = selection.toString() || "";
+
+    // Simple prompt for URL (could be replaced with a modal)
+    const url = prompt("Enter URL:", "https://");
+    if (url && url !== "https://") {
+      if (selectedText) {
+        document.execCommand("createLink", false, url);
+      } else {
+        const link = document.createElement("a");
+        link.href = url;
+        link.textContent = url;
+        link.target = "_blank";
+
+        if (selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          range.insertNode(link);
+          range.setStartAfter(link);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+      }
+
+      noteEditor.focus();
+
+      // Trigger save
+      notesSaveStatus.textContent = "⏳ Saving...";
+      notesSaveStatus.classList.add("saving");
+      clearTimeout(notesDebounceTimer);
+      notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+    }
+  });
+
+// Insert horizontal rule handler
+document.getElementById("insertHrBtn").addEventListener("click", (e) => {
+  e.preventDefault();
+  document.execCommand("insertHorizontalRule", false, null);
+  noteEditor.focus();
+
+  // Trigger save
+  notesSaveStatus.textContent = "⏳ Saving...";
+  notesSaveStatus.classList.add("saving");
+  clearTimeout(notesDebounceTimer);
+  notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+});
+
+// Clear formatting handler
+document.getElementById("clearFormattingBtn").addEventListener("click", (e) => {
+  e.preventDefault();
+  document.execCommand("removeFormat", false, null);
+  noteEditor.focus();
+
+  // Trigger save
+  notesSaveStatus.textContent = "⏳ Saving...";
+  notesSaveStatus.classList.add("saving");
+  clearTimeout(notesDebounceTimer);
+  notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+});
+
+// Handle paste event for images (copy/paste from clipboard)
+noteEditor.addEventListener("paste", async (e) => {
+  const clipboardData = e.clipboardData || window.clipboardData;
+  const items = clipboardData.items;
+
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type.indexOf("image") !== -1) {
+      e.preventDefault();
+      const file = items[i].getAsFile();
+
+      // Convert image to base64 data URL
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = document.createElement("img");
+        img.src = event.target.result;
+        img.style.maxWidth = "100%";
+
+        // Insert at cursor position
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          range.deleteContents();
+          range.insertNode(img);
+
+          // Move cursor after the image
+          range.setStartAfter(img);
+          range.setEndAfter(img);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        } else {
+          noteEditor.appendChild(img);
+        }
+
+        // Observe the new image for resize
+        setTimeout(wrapImagesWithResizeHandles, 100);
+
+        // Trigger save
+        notesSaveStatus.textContent = "⏳ Saving...";
+        notesSaveStatus.classList.add("saving");
+        clearTimeout(notesDebounceTimer);
+        notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+  }
+});
+
+// ========== Image Lightbox Feature ==========
+
+// Variables for image resizing
+let isResizing = false;
+let currentResizeImg = null;
+let startX, startY, startWidth, startHeight;
+
+// Zoom variables
+let currentZoom = 100;
+const ZOOM_MIN = 25;
+const ZOOM_MAX = 400;
+const ZOOM_STEP = 25;
+
+// Update zoom level display
+function updateZoomDisplay() {
+  zoomLevelDisplay.textContent = currentZoom + "%";
+  lightboxImage.style.transform = `scale(${currentZoom / 100})`;
+}
+
+// Zoom in
+function zoomIn() {
+  if (currentZoom < ZOOM_MAX) {
+    currentZoom = Math.min(ZOOM_MAX, currentZoom + ZOOM_STEP);
+    updateZoomDisplay();
+  }
+}
+
+// Zoom out
+function zoomOut() {
+  if (currentZoom > ZOOM_MIN) {
+    currentZoom = Math.max(ZOOM_MIN, currentZoom - ZOOM_STEP);
+    updateZoomDisplay();
+  }
+}
+
+// Reset zoom
+function resetZoom() {
+  currentZoom = 100;
+  updateZoomDisplay();
+}
+
+// Function to open image in lightbox
+function openImageInLightbox(imgSrc) {
+  // Reset zoom when opening
+  currentZoom = 100;
+  updateZoomDisplay();
+  lightboxImage.src = imgSrc;
+  imageLightbox.classList.remove("hidden");
+  document.body.style.overflow = "hidden"; // Prevent background scroll
+}
+
+// Open lightbox when clicking on an image in the note editor
+noteEditor.addEventListener("click", (e) => {
+  // Don't open lightbox if clicking on resize handle or while resizing
+  if (e.target.classList.contains("img-resize-handle") || isResizing) {
+    return;
+  }
+  if (e.target.tagName === "IMG") {
+    e.preventDefault();
+    openImageInLightbox(e.target.src);
+  }
+});
+
+// Open lightbox when clicking on an image in read mode
+noteReadView.addEventListener("click", (e) => {
+  if (e.target.tagName === "IMG") {
+    e.preventDefault();
+    openImageInLightbox(e.target.src);
+  }
+});
+
+// Close lightbox function
+function closeImageLightbox() {
+  imageLightbox.classList.add("hidden");
+  lightboxImage.src = "";
+  document.body.style.overflow = ""; // Restore scroll
+  // Reset zoom
+  currentZoom = 100;
+  updateZoomDisplay();
+}
+
+// Close lightbox on close button click
+closeLightbox.addEventListener("click", closeImageLightbox);
+
+// Close lightbox on backdrop click
+lightboxBackdrop.addEventListener("click", closeImageLightbox);
+
+// Zoom button event listeners
+zoomInBtn.addEventListener("click", zoomIn);
+zoomOutBtn.addEventListener("click", zoomOut);
+zoomResetBtn.addEventListener("click", resetZoom);
+
+// Mouse wheel zoom
+lightboxImageContainer.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  if (e.deltaY < 0) {
+    zoomIn();
+  } else {
+    zoomOut();
+  }
+});
+
+// Close lightbox on Escape key, zoom with +/-
+document.addEventListener("keydown", (e) => {
+  if (!imageLightbox.classList.contains("hidden")) {
+    if (e.key === "Escape") {
+      closeImageLightbox();
+    } else if (e.key === "+" || e.key === "=") {
+      zoomIn();
+    } else if (e.key === "-" || e.key === "_") {
+      zoomOut();
+    } else if (e.key === "0") {
+      resetZoom();
+    }
+  }
+});
+
+// Wrap images with resize handles
+function wrapImagesWithResizeHandles() {
+  const images = noteEditor.querySelectorAll("img:not(.wrapped)");
+  images.forEach((img) => {
+    // Skip if already wrapped
+    if (
+      img.parentElement &&
+      img.parentElement.classList.contains("img-resize-wrapper")
+    ) {
+      return;
+    }
+
+    // Create wrapper
+    const wrapper = document.createElement("span");
+    wrapper.className = "img-resize-wrapper";
+    wrapper.contentEditable = "false";
+
+    // Create resize handle
+    const handle = document.createElement("span");
+    handle.className = "img-resize-handle";
+
+    // Wrap the image
+    img.parentNode.insertBefore(wrapper, img);
+    wrapper.appendChild(img);
+    wrapper.appendChild(handle);
+    img.classList.add("wrapped");
+
+    // Add resize event listeners to handle
+    handle.addEventListener("mousedown", startResize);
+  });
+}
+
+// Start resize
+function startResize(e) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  const wrapper = e.target.parentElement;
+  currentResizeImg = wrapper.querySelector("img");
+
+  if (!currentResizeImg) return;
+
+  isResizing = true;
+  wrapper.classList.add("resizing");
+
+  startX = e.clientX;
+  startY = e.clientY;
+  startWidth = currentResizeImg.offsetWidth;
+  startHeight = currentResizeImg.offsetHeight;
+
+  document.addEventListener("mousemove", doResize);
+  document.addEventListener("mouseup", stopResize);
+}
+
+// Perform resize
+function doResize(e) {
+  if (!isResizing || !currentResizeImg) return;
+
+  const deltaX = e.clientX - startX;
+  const deltaY = e.clientY - startY;
+
+  // Calculate new dimensions maintaining aspect ratio
+  const aspectRatio = startWidth / startHeight;
+  let newWidth = Math.max(50, startWidth + deltaX);
+  let newHeight = newWidth / aspectRatio;
+
+  // Apply dimensions
+  currentResizeImg.style.width = newWidth + "px";
+  currentResizeImg.style.height = newHeight + "px";
+}
+
+// Stop resize
+function stopResize() {
+  if (!isResizing) return;
+
+  isResizing = false;
+
+  if (currentResizeImg) {
+    const wrapper = currentResizeImg.parentElement;
+    if (wrapper) {
+      wrapper.classList.remove("resizing");
+    }
+  }
+
+  currentResizeImg = null;
+
+  document.removeEventListener("mousemove", doResize);
+  document.removeEventListener("mouseup", stopResize);
+
+  // Save after resize
+  notesSaveStatus.textContent = "⏳ Saving...";
+  notesSaveStatus.classList.add("saving");
+  clearTimeout(notesDebounceTimer);
+  notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+}
+
+// ========== End Image Lightbox Feature ==========
+
+// ========== End Notes Feature ==========
+
 // Add App Modal handlers
-function openModal() {
+const selectFromListTab = document.getElementById("selectFromListTab");
+const browseManualTab = document.getElementById("browseManualTab");
+const selectFromListPanel = document.getElementById("selectFromListPanel");
+const browseManualPanel = document.getElementById("browseManualPanel");
+const installedAppsList = document.getElementById("installedAppsList");
+const installedAppsSearch = document.getElementById("installedAppsSearch");
+const noInstalledAppsMsg = document.getElementById("noInstalledAppsMsg");
+const installedAppsLoading = document.getElementById("installedAppsLoading");
+
+let availableApps = {};
+let selectedInstalledApp = null;
+
+// App display names mapping
+const APP_DISPLAY_NAMES = {
+  hubstaff: "Hubstaff",
+  hubstaffCli: "Hubstaff CLI",
+  slack: "Slack",
+  teams: "Microsoft Teams",
+  discord: "Discord",
+  notion: "Notion",
+  figma: "Figma",
+  postman: "Postman",
+  docker: "Docker Desktop",
+  visualStudio: "Visual Studio",
+  vscode: "VS Code",
+  pycharm: "PyCharm",
+  chrome: "Google Chrome",
+  firefox: "Firefox",
+  edge: "Microsoft Edge",
+  mongodb: "MongoDB Compass",
+  dbeaver: "DBeaver",
+  tableplus: "TablePlus",
+  spotify: "Spotify",
+};
+
+// App icons mapping
+const APP_ICONS = {
+  hubstaff: "⏱️",
+  hubstaffCli: "⌨️",
+  slack: "💬",
+  teams: "👥",
+  discord: "🎮",
+  notion: "📝",
+  figma: "🎨",
+  postman: "📮",
+  docker: "🐳",
+  visualStudio: "💻",
+  vscode: "📘",
+  pycharm: "🐍",
+  chrome: "🌐",
+  firefox: "🦊",
+  edge: "🌊",
+  mongodb: "🍃",
+  dbeaver: "🦫",
+  tableplus: "📊",
+  spotify: "🎵",
+};
+
+function switchAddAppTab(tab) {
+  selectFromListTab.classList.toggle("active", tab === "list");
+  browseManualTab.classList.toggle("active", tab === "manual");
+  selectFromListPanel.classList.toggle("active", tab === "list");
+  browseManualPanel.classList.toggle("active", tab === "manual");
+
+  // Reset selection when switching tabs
+  selectedInstalledApp = null;
+  document.querySelectorAll(".installed-app-item.selected").forEach((el) => {
+    el.classList.remove("selected");
+  });
+}
+
+selectFromListTab.addEventListener("click", () => switchAddAppTab("list"));
+browseManualTab.addEventListener("click", () => switchAddAppTab("manual"));
+
+async function loadAvailableApps() {
+  // Show loading, hide list
+  installedAppsLoading.classList.remove("hidden");
+  installedAppsList.style.display = "none";
+  noInstalledAppsMsg.style.display = "none";
+
+  try {
+    availableApps = await window.electronAPI.getAvailableApps();
+    renderInstalledAppsList();
+  } catch (error) {
+    console.error("Failed to load available apps:", error);
+    noInstalledAppsMsg.textContent =
+      "Failed to load apps. Try browsing manually.";
+    noInstalledAppsMsg.style.display = "block";
+  } finally {
+    // Hide loading, show list
+    installedAppsLoading.classList.add("hidden");
+    installedAppsList.style.display = "flex";
+  }
+}
+
+function renderInstalledAppsList(filter = "") {
+  installedAppsList.innerHTML = "";
+  const filterLower = filter.toLowerCase();
+
+  const appEntries = Object.entries(availableApps);
+  const filteredApps = appEntries.filter(([key, app]) => {
+    // Use displayName from app if available (for scanned apps), otherwise use mapping
+    const displayName = app.displayName || APP_DISPLAY_NAMES[key] || key;
+    return (
+      displayName.toLowerCase().includes(filterLower) ||
+      key.toLowerCase().includes(filterLower) ||
+      app.path.toLowerCase().includes(filterLower)
+    );
+  });
+
+  // Sort: pre-defined apps first, then alphabetically by display name
+  filteredApps.sort(([keyA, appA], [keyB, appB]) => {
+    const isScannedA = appA.scanned || false;
+    const isScannedB = appB.scanned || false;
+    if (isScannedA !== isScannedB) return isScannedA ? 1 : -1;
+    const nameA = appA.displayName || APP_DISPLAY_NAMES[keyA] || keyA;
+    const nameB = appB.displayName || APP_DISPLAY_NAMES[keyB] || keyB;
+    return nameA.localeCompare(nameB);
+  });
+
+  if (filteredApps.length === 0) {
+    noInstalledAppsMsg.style.display = "block";
+    return;
+  }
+
+  noInstalledAppsMsg.style.display = "none";
+
+  filteredApps.forEach(([key, app]) => {
+    // Use displayName from app if available (for scanned apps)
+    const displayName = app.displayName || APP_DISPLAY_NAMES[key] || key;
+    const icon = APP_ICONS[key] || "📦";
+    const isAlreadyAdded = currentApps[key] !== undefined;
+
+    const item = document.createElement("div");
+    item.className = `installed-app-item${isAlreadyAdded ? " already-added" : ""}`;
+    item.dataset.appKey = key;
+    item.innerHTML = `
+      <span class="installed-app-icon">${icon}</span>
+      <div class="installed-app-info">
+        <div class="installed-app-name">${displayName}</div>
+        <div class="installed-app-path">${app.path}</div>
+      </div>
+      ${isAlreadyAdded ? '<span class="installed-app-badge">Added</span>' : ""}
+    `;
+
+    if (!isAlreadyAdded) {
+      item.addEventListener("click", () => {
+        // Deselect previous
+        document
+          .querySelectorAll(".installed-app-item.selected")
+          .forEach((el) => {
+            el.classList.remove("selected");
+          });
+        // Select this one
+        item.classList.add("selected");
+        selectedInstalledApp = { key, ...app, displayName };
+      });
+    }
+
+    installedAppsList.appendChild(item);
+  });
+}
+
+installedAppsSearch.addEventListener("input", (e) => {
+  renderInstalledAppsList(e.target.value);
+});
+
+async function openModal() {
   customAppName.value = "";
   customAppPath.value = "";
+  installedAppsSearch.value = "";
+  selectedInstalledApp = null;
+
+  // Reset to first tab
+  switchAddAppTab("list");
+
+  // Load available apps
+  await loadAvailableApps();
+
   addAppModal.classList.remove("hidden");
 }
 
 function closeModal() {
   addAppModal.classList.add("hidden");
+  selectedInstalledApp = null;
 }
 
 addAppBtn.addEventListener("click", openModal);
@@ -720,27 +1784,60 @@ browseBtn.addEventListener("click", async () => {
 
 // Confirm add app
 confirmAddBtn.addEventListener("click", async () => {
-  const name = customAppName.value.trim();
-  const path = customAppPath.value.trim();
+  // Check if we're on the "Select from Installed" tab
+  const isSelectFromList = selectFromListPanel.classList.contains("active");
 
-  if (!name) {
-    showNotification("Please enter an application name", true);
-    return;
-  }
+  if (isSelectFromList) {
+    // Add selected installed app
+    if (!selectedInstalledApp) {
+      showNotification("Please select an application from the list", true);
+      return;
+    }
 
-  if (!path) {
-    showNotification("Please select an executable file", true);
-    return;
-  }
+    try {
+      // Add the app with its detected path
+      // For scanned apps, mark as custom so user can delete them
+      const isScanned = selectedInstalledApp.key.startsWith("scanned_");
+      currentApps[selectedInstalledApp.key] = {
+        path: selectedInstalledApp.path,
+        enabled: true,
+        isCustom: isScanned,
+        customName: selectedInstalledApp.displayName,
+      };
+      await window.electronAPI.saveApps(currentApps);
+      renderAppsList(currentApps);
+      closeModal();
+      showNotification(
+        `Added "${selectedInstalledApp.displayName}" successfully!`,
+      );
+    } catch (error) {
+      console.error("Failed to add app:", error);
+      showNotification("Failed to add application", true);
+    }
+  } else {
+    // Manual browse method
+    const name = customAppName.value.trim();
+    const path = customAppPath.value.trim();
 
-  try {
-    currentApps = await window.electronAPI.addCustomApp(name, path);
-    renderAppsList(currentApps);
-    closeModal();
-    showNotification(`Added "${name}" successfully!`);
-  } catch (error) {
-    console.error("Failed to add app:", error);
-    showNotification("Failed to add application", true);
+    if (!name) {
+      showNotification("Please enter an application name", true);
+      return;
+    }
+
+    if (!path) {
+      showNotification("Please select an executable file", true);
+      return;
+    }
+
+    try {
+      currentApps = await window.electronAPI.addCustomApp(name, path);
+      renderAppsList(currentApps);
+      closeModal();
+      showNotification(`Added "${name}" successfully!`);
+    } catch (error) {
+      console.error("Failed to add app:", error);
+      showNotification("Failed to add application", true);
+    }
   }
 });
 
