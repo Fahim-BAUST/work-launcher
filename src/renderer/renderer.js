@@ -61,6 +61,25 @@ const deleteNoteBtn = document.getElementById("deleteNoteBtn");
 // Edit mode state
 let isEditMode = true;
 
+// Update Modal DOM Elements
+const updateBtn = document.getElementById("updateBtn");
+const updateDot = document.getElementById("updateDot");
+const updateModal = document.getElementById("updateModal");
+const closeUpdateModalBtn = document.getElementById("closeUpdateModalBtn");
+const checkUpdateBtn = document.getElementById("checkUpdateBtn");
+const currentVersionEl = document.getElementById("currentVersion");
+const newVersionBadge = document.getElementById("newVersionBadge");
+const newVersionNumber = document.getElementById("newVersionNumber");
+const updateIcon = document.getElementById("updateIcon");
+const updateStatusText = document.getElementById("updateStatusText");
+const updateProgressContainer = document.getElementById(
+  "updateProgressContainer",
+);
+const updateProgressBar = document.getElementById("updateProgressBar");
+const updatePercentage = document.getElementById("updatePercentage");
+const downloadUpdateBtn = document.getElementById("downloadUpdateBtn");
+const installUpdateBtn = document.getElementById("installUpdateBtn");
+
 // Image Lightbox DOM Elements
 const imageLightbox = document.getElementById("imageLightbox");
 const lightboxBackdrop = document.getElementById("lightboxBackdrop");
@@ -579,6 +598,13 @@ async function init() {
       renderAppsList(currentApps);
       renderProfilesList(currentProfiles, activeProfileId);
     });
+
+    // Initialize app version display
+    const appVersion = await window.electronAPI.getAppVersion();
+    currentVersionEl.textContent = `v${appVersion}`;
+
+    // Setup update event listeners
+    setupUpdateListeners();
 
     // Hide splash screen after initialization (4 seconds)
     setTimeout(() => {
@@ -1898,6 +1924,160 @@ saveBtn.addEventListener("click", async () => {
     console.error("Failed to save settings:", error);
     showNotification("Failed to save settings", true);
   }
+});
+
+// ============================================
+// Update Handling
+// ============================================
+
+/**
+ * Setup update event listeners
+ */
+function setupUpdateListeners() {
+  // Listen for update available
+  window.electronAPI.onUpdateAvailable((info) => {
+    updateIcon.textContent = "🎉";
+    updateStatusText.textContent = `New version available!`;
+    newVersionBadge.classList.remove("hidden");
+    newVersionNumber.textContent = `v${info.version}`;
+    updateProgressContainer.classList.add("hidden");
+    checkUpdateBtn.classList.add("hidden");
+    downloadUpdateBtn.classList.remove("hidden");
+    downloadUpdateBtn.disabled = false;
+    downloadUpdateBtn.textContent = "⬇️ Download Update";
+    installUpdateBtn.classList.add("hidden");
+
+    // Show notification dot on update button
+    updateDot.classList.remove("hidden");
+
+    // Auto-open the modal
+    updateModal.classList.remove("hidden");
+  });
+
+  // Listen for no update available
+  window.electronAPI.onUpdateNotAvailable(() => {
+    updateIcon.textContent = "✅";
+    updateStatusText.textContent = "You're up to date!";
+    newVersionBadge.classList.add("hidden");
+    updateProgressContainer.classList.add("hidden");
+    checkUpdateBtn.classList.remove("hidden");
+    checkUpdateBtn.disabled = false;
+    checkUpdateBtn.textContent = "🔍 Check for Updates";
+    downloadUpdateBtn.classList.add("hidden");
+    installUpdateBtn.classList.add("hidden");
+
+    // Hide notification dot
+    updateDot.classList.add("hidden");
+  });
+
+  // Listen for download progress
+  window.electronAPI.onUpdateProgress((percent) => {
+    const roundedPercent = Math.round(percent);
+    updateIcon.textContent = "⬇️";
+    updateStatusText.textContent = "Downloading update...";
+    updateProgressContainer.classList.remove("hidden");
+    updatePercentage.textContent = `${roundedPercent}%`;
+    updateProgressBar.style.width = `${roundedPercent}%`;
+    checkUpdateBtn.classList.add("hidden");
+    downloadUpdateBtn.classList.add("hidden");
+    installUpdateBtn.classList.add("hidden");
+  });
+
+  // Listen for update downloaded
+  window.electronAPI.onUpdateDownloaded((info) => {
+    updateIcon.textContent = "🚀";
+    updateStatusText.textContent = "Update ready to install!";
+    updateProgressContainer.classList.add("hidden");
+    updateProgressBar.style.width = "100%";
+    checkUpdateBtn.classList.add("hidden");
+    downloadUpdateBtn.classList.add("hidden");
+    installUpdateBtn.classList.remove("hidden");
+    installUpdateBtn.disabled = false;
+    installUpdateBtn.textContent = "🔄 Install & Restart";
+  });
+
+  // Listen for update error
+  window.electronAPI.onUpdateError((message) => {
+    updateIcon.textContent = "❌";
+    updateStatusText.textContent = `Error: ${message}`;
+    updateProgressContainer.classList.add("hidden");
+    newVersionBadge.classList.add("hidden");
+    checkUpdateBtn.classList.remove("hidden");
+    checkUpdateBtn.disabled = false;
+    checkUpdateBtn.textContent = "🔍 Check for Updates";
+    downloadUpdateBtn.classList.add("hidden");
+    installUpdateBtn.classList.add("hidden");
+
+    // Hide notification dot on error
+    updateDot.classList.add("hidden");
+  });
+}
+
+// Open update modal
+updateBtn.addEventListener("click", () => {
+  updateModal.classList.remove("hidden");
+});
+
+// Close update modal
+closeUpdateModalBtn.addEventListener("click", () => {
+  updateModal.classList.add("hidden");
+});
+
+// Close modal on backdrop click
+updateModal.addEventListener("click", (e) => {
+  if (e.target === updateModal) {
+    updateModal.classList.add("hidden");
+  }
+});
+
+// Check for updates button
+checkUpdateBtn.addEventListener("click", async () => {
+  checkUpdateBtn.disabled = true;
+  checkUpdateBtn.textContent = "⏳ Checking...";
+  updateIcon.textContent = "🔍";
+  updateStatusText.textContent = "Checking for updates...";
+  updateProgressContainer.classList.add("hidden");
+  newVersionBadge.classList.add("hidden");
+
+  try {
+    await window.electronAPI.checkForUpdates();
+  } catch (error) {
+    updateIcon.textContent = "❌";
+    updateStatusText.textContent = `Error: ${error.message}`;
+    checkUpdateBtn.disabled = false;
+    checkUpdateBtn.textContent = "🔍 Check for Updates";
+  }
+});
+
+// Download update button
+downloadUpdateBtn.addEventListener("click", async () => {
+  downloadUpdateBtn.disabled = true;
+  downloadUpdateBtn.textContent = "⏳ Starting...";
+  updateIcon.textContent = "⬇️";
+  updateStatusText.textContent = "Starting download...";
+  updateProgressContainer.classList.remove("hidden");
+  updatePercentage.textContent = "0%";
+  updateProgressBar.style.width = "0%";
+
+  try {
+    await window.electronAPI.downloadUpdate();
+  } catch (error) {
+    updateIcon.textContent = "❌";
+    updateStatusText.textContent = `Error: ${error.message}`;
+    downloadUpdateBtn.disabled = false;
+    downloadUpdateBtn.textContent = "⬇️ Download Update";
+    downloadUpdateBtn.classList.remove("hidden");
+  }
+});
+
+// Install update button
+installUpdateBtn.addEventListener("click", async () => {
+  installUpdateBtn.disabled = true;
+  installUpdateBtn.textContent = "⏳ Installing...";
+  updateIcon.textContent = "🔄";
+  updateStatusText.textContent = "Installing and restarting...";
+
+  await window.electronAPI.installUpdate();
 });
 
 // Initialize on page load

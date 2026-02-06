@@ -28,10 +28,21 @@
     <div class="container">
       <header>
         <div class="header-row">
+          <div class="header-spacer"></div>
           <h1>🚀 Work Launcher</h1>
-          <button id="themeToggle" class="btn btn-icon" title="Toggle Theme">
-            🌙
-          </button>
+          <div class="header-actions">
+            <button
+              id="updateBtn"
+              class="btn btn-icon update-btn"
+              title="Check for Updates"
+            >
+              🔄
+              <span id="updateDot" class="update-dot hidden"></span>
+            </button>
+            <button id="themeToggle" class="btn btn-icon" title="Toggle Theme">
+              🌙
+            </button>
+          </div>
         </div>
         <p class="subtitle">Configure your startup applications</p>
       </header>
@@ -127,57 +138,70 @@
             </div>
           </section>
 
-          <!-- Profiles Section -->
-          <section class="setting-section profiles-section">
-            <div class="section-header">
-              <h2>📋 Launch Profiles</h2>
-              <button id="addProfileBtn" class="btn btn-success btn-sm">
-                ➕ New Profile
-              </button>
-            </div>
-            <p class="section-desc">
-              Save different app configurations for different work modes
-            </p>
-            <div id="profilesList" class="profiles-list">
-              <!-- Profiles will be dynamically inserted here -->
-            </div>
-          </section>
-
-          <!-- Applications list -->
-          <section class="apps-section">
-            <div class="section-header">
-              <h2>📱 Applications</h2>
-              <div class="header-buttons">
-                <button id="addAppBtn" class="btn btn-success btn-sm">
-                  ➕ Add App
+          <!-- Main Settings Card - Contains Profiles, Apps, and Actions -->
+          <section class="main-settings-card">
+            <!-- Profiles Section -->
+            <div class="profiles-section">
+              <div class="section-header">
+                <h2>📋 Launch Profiles</h2>
+                <button id="addProfileBtn" class="btn btn-success btn-sm">
+                  ➕ New Profile
                 </button>
-                <button id="detectAppsBtn" class="btn btn-secondary btn-sm">
-                  🔍 Re-detect
-                </button>
+              </div>
+              <p class="section-desc">
+                Save different app configurations for different work modes
+              </p>
+              <div id="profilesList" class="profiles-list">
+                <!-- Profiles will be dynamically inserted here -->
               </div>
             </div>
 
-            <div id="appsList" class="apps-list">
-              <!-- Apps will be dynamically inserted here -->
+            <!-- Divider -->
+            <div class="section-divider"></div>
+
+            <!-- Applications list -->
+            <div class="apps-section-inner">
+              <div class="section-header">
+                <h2>📱 Applications</h2>
+                <div class="header-buttons">
+                  <button id="addAppBtn" class="btn btn-success btn-sm">
+                    ➕ Add App
+                  </button>
+                  <button id="detectAppsBtn" class="btn btn-secondary btn-sm">
+                    🔍 Re-detect
+                  </button>
+                </div>
+              </div>
+
+              <div id="appsList" class="apps-list">
+                <!-- Apps will be dynamically inserted here -->
+              </div>
+
+              <p class="help-text" id="noAppsMessage" style="display: none">
+                No applications detected. Click "Re-detect Apps" to scan for
+                installed applications.
+              </p>
             </div>
 
-            <p class="help-text" id="noAppsMessage" style="display: none">
-              No applications detected. Click "Re-detect Apps" to scan for
-              installed applications.
-            </p>
-          </section>
+            <!-- Divider -->
+            <div class="section-divider"></div>
 
-          <!-- Action buttons (Settings Tab) -->
-          <section class="actions-section">
-            <button id="launchNowBtn" class="btn btn-primary btn-large">
-              🚀 Launch All Apps Now
-            </button>
-            <div class="btn-row">
-              <button id="saveBtn" class="btn btn-success">
+            <!-- Action buttons inside card -->
+            <div class="actions-inner">
+              <button id="launchNowBtn" class="btn btn-primary btn-large">
+                🚀 Launch All Apps Now
+              </button>
+              <button id="saveBtn" class="btn btn-success btn-large">
                 💾 Save Settings
               </button>
-              <button id="quitBtn" class="btn btn-danger">❌ Quit App</button>
             </div>
+          </section>
+
+          <!-- Quit button outside the card -->
+          <section class="quit-section">
+            <button id="quitBtn" class="btn btn-danger btn-large">
+              ❌ Quit App
+            </button>
           </section>
         </div>
         <!-- End Settings Tab Panel -->
@@ -679,6 +703,56 @@
         </div>
         <div class="lightbox-image-container" id="lightboxImageContainer">
           <img id="lightboxImage" src="" alt="Preview" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Update Modal -->
+    <div id="updateModal" class="modal hidden">
+      <div class="modal-content update-modal-content">
+        <div class="modal-header">
+          <h3>🔄 Software Update</h3>
+          <button id="closeUpdateModalBtn" class="btn-close">&times;</button>
+        </div>
+        <div class="modal-body update-modal-body">
+          <div class="update-version-info">
+            <div class="version-badge">
+              <span class="version-label">Current Version</span>
+              <span id="currentVersion" class="version-number">Loading...</span>
+            </div>
+            <div id="newVersionBadge" class="version-badge new-version hidden">
+              <span class="version-label">New Version</span>
+              <span id="newVersionNumber" class="version-number"></span>
+            </div>
+          </div>
+
+          <div id="updateStatusContainer" class="update-status-container">
+            <div class="update-icon" id="updateIcon">🔍</div>
+            <p id="updateStatusText" class="update-status-text">
+              Click below to check for updates
+            </p>
+          </div>
+
+          <div
+            id="updateProgressContainer"
+            class="update-progress-container hidden"
+          >
+            <div class="progress-bar-container">
+              <div id="updateProgressBar" class="progress-bar"></div>
+            </div>
+            <span id="updatePercentage" class="update-percentage">0%</span>
+          </div>
+        </div>
+        <div class="modal-footer update-modal-footer">
+          <button id="checkUpdateBtn" class="btn btn-primary">
+            🔍 Check for Updates
+          </button>
+          <button id="downloadUpdateBtn" class="btn btn-success hidden">
+            ⬇️ Download Update
+          </button>
+          <button id="installUpdateBtn" class="btn btn-primary hidden">
+            🔄 Install & Restart
+          </button>
         </div>
       </div>
     </div>

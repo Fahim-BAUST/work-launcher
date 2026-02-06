@@ -9,6 +9,7 @@ const {
   globalShortcut,
 } = require("electron");
 const path = require("path");
+const { autoUpdater } = require("electron-updater");
 const {
   launchMultipleApps,
   launchHubstaff,
@@ -27,6 +28,8 @@ const {
   enableAutoLaunch,
   disableAutoLaunch,
   isAutoLaunchEnabled,
+  fixBrokenStartupShortcut,
+  migrateToTaskScheduler,
 } = require("./autoLaunch");
 
 // Helper to get asset path (works in both dev and production)
@@ -129,6 +132,79 @@ const store = new Store({
 
 let mainWindow = null;
 let tray = null;
+
+// ============================================
+// Auto-Update Configuration
+// ============================================
+autoUpdater.autoDownload = false; // Don't auto-download, ask user first
+autoUpdater.autoInstallOnAppQuit = true;
+
+// Store for pending update info
+let pendingUpdateInfo = null;
+
+// Auto-update event handlers
+autoUpdater.on("checking-for-update", () => {
+  console.log("Checking for updates...");
+});
+
+autoUpdater.on("update-available", (info) => {
+  console.log("Update available:", info.version);
+  pendingUpdateInfo = info;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("update-available", {
+      version: info.version,
+      releaseNotes: info.releaseNotes,
+    });
+  }
+});
+
+autoUpdater.on("update-not-available", (info) => {
+  console.log("No updates available. Current version:", app.getVersion());
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("update-not-available");
+  }
+});
+
+autoUpdater.on("download-progress", (progressObj) => {
+  console.log(`Download progress: ${Math.round(progressObj.percent)}%`);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(
+      "update-download-progress",
+      progressObj.percent,
+    );
+    mainWindow.setProgressBar(progressObj.percent / 100);
+  }
+});
+
+autoUpdater.on("update-downloaded", (info) => {
+  console.log("Update downloaded:", info.version);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setProgressBar(-1); // Remove progress bar
+    mainWindow.webContents.send("update-downloaded", {
+      version: info.version,
+    });
+  }
+});
+
+autoUpdater.on("error", (error) => {
+  console.error("Auto-update error:", error.message);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("update-error", error.message);
+  }
+});
+
+/**
+ * Check for updates (only in production)
+ */
+function checkForUpdates() {
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdates().catch((err) => {
+      console.error("Failed to check for updates:", err.message);
+    });
+  }
+}
+
+// ============================================
 
 // Ensure single instance
 const gotTheLock = app.requestSingleInstanceLock();
@@ -796,6 +872,40 @@ function setupIpcHandlers() {
     app.isQuitting = true;
     app.quit();
   });
+
+  // Check for updates manually
+  ipcMain.handle("check-for-updates", async () => {
+    if (!app.isPackaged) {
+      return {
+        updateAvailable: false,
+        message: "Updates only work in production",
+      };
+    }
+    try {
+      const result = await autoUpdater.checkForUpdates();
+      return {
+        updateAvailable: !!result?.updateInfo,
+        version: result?.updateInfo?.version,
+      };
+    } catch (error) {
+      return { updateAvailable: false, error: error.message };
+    }
+  });
+
+  // Get current app version
+  ipcMain.handle("get-app-version", () => {
+    return app.getVersion();
+  });
+
+  // Download update
+  ipcMain.handle("download-update", () => {
+    autoUpdater.downloadUpdate();
+  });
+
+  // Install update and restart
+  ipcMain.handle("install-update", () => {
+    autoUpdater.quitAndInstall(false, true);
+  });
 }
 
 /**
@@ -875,6 +985,47 @@ app.whenReady().then(async () => {
 
   // Register global keyboard shortcut
   registerGlobalShortcut();
+
+  if (app.isPackaged) {
+    // Migrate from old Startup folder method to Task Scheduler (for existing users)
+    const fixResult = await fixBrokenStartupShortcut();
+    if (fixResult.fixed) {
+      console.log("Migrated to high-priority Task Scheduler startup");
+    }
+
+    // First-run setup: Enable auto-launch by default for fresh installations
+    // This handles MSI installations that don't have custom install scripts
+    if (store.get("firstRun", true)) {
+      console.log("First run detected - enabling high-priority auto-launch");
+      try {
+        await enableAutoLaunch();
+        store.set("autoLaunchEnabled", true);
+      } catch (err) {
+        console.error(
+          "Failed to enable auto-launch on first run:",
+          err.message,
+        );
+      }
+      store.set("firstRun", false);
+    } else {
+      // Not first run - ensure XML-based task with Priority 4 is in place
+      // This upgrades basic tasks created by installer to high-priority XML tasks
+      const autoLaunchSetting = store.get("autoLaunchEnabled", false);
+      if (autoLaunchSetting) {
+        console.log("Ensuring high-priority XML-based Task Scheduler entry");
+        try {
+          await enableAutoLaunch();
+        } catch (err) {
+          console.error("Failed to upgrade auto-launch task:", err.message);
+        }
+      }
+    }
+
+    // Check for updates (after a short delay to not slow down startup)
+    setTimeout(() => {
+      checkForUpdates();
+    }, 5000);
+  }
 
   if (isStartupLaunch) {
     // Launched via Windows startup - show dialog immediately
