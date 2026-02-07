@@ -2,6 +2,16 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
+## [1.0.15] - 2026-02-07
+
+### Added
+- Comprehensive README.md with full documentation
+- AGENT.md for AI coding assistant guidance
+
+### Improved
+- Better documentation for all features
+- Clear installation and usage instructions
+
 ## [1.0.14] - 2026-02-07
 
 ### Fixed
