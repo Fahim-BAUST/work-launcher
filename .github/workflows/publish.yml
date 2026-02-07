@@ -63,11 +63,39 @@ jobs:
               env:
                   GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
+            - name: Update release with changelog
+              if: steps.check-release.outputs.RELEASE_EXISTS == 'false'
+              shell: pwsh
+              run: |
+                  $version = "${{ steps.package-version.outputs.VERSION }}"
+                  $tag = "v$version"
+                  
+                  # Wait for the release to be fully created
+                  Start-Sleep -Seconds 5
+                  
+                  # Read changelog and extract this version's notes
+                  $content = Get-Content CHANGELOG.md -Raw
+                  $pattern = "(?s)## \[$version\].*?(?=## \[|$)"
+                  $match = [regex]::Match($content, $pattern)
+                  
+                  if ($match.Success) {
+                    $notes = $match.Value.Trim()
+                    $tempFile = New-TemporaryFile
+                    $notes | Out-File -FilePath $tempFile.FullName -Encoding utf8
+                    gh release edit $tag --notes-file $tempFile.FullName
+                    Remove-Item $tempFile.FullName
+                    echo "Updated release $tag with changelog"
+                  } else {
+                    echo "No changelog found for version $version"
+                  }
+              env:
+                  GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
             - name: Release Summary
               if: steps.check-release.outputs.RELEASE_EXISTS == 'false'
               run: |
-                  echo "✅ Successfully released v${{ steps.package-version.outputs.VERSION }}"
-                  echo "📦 Installers uploaded to GitHub Releases"
+                  echo "Successfully released v${{ steps.package-version.outputs.VERSION }}"
+                  echo "Release notes added from CHANGELOG.md"
 
             - name: Skip Summary
               if: steps.check-release.outputs.RELEASE_EXISTS == 'true'
