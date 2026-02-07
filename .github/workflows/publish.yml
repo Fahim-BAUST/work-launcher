@@ -67,11 +67,12 @@ jobs:
               if: steps.check-release.outputs.RELEASE_EXISTS == 'false'
               shell: pwsh
               run: |
+                  $ErrorActionPreference = "Continue"
                   $version = "${{ steps.package-version.outputs.VERSION }}"
                   $tag = "v$version"
                   
-                  # Wait for the release to be fully created
-                  Start-Sleep -Seconds 5
+                  # Wait for the release to be fully created by electron-builder
+                  Start-Sleep -Seconds 10
                   
                   # Read changelog and extract this version's notes
                   $content = Get-Content CHANGELOG.md -Raw
@@ -82,9 +83,27 @@ jobs:
                     $notes = $match.Value.Trim()
                     $tempFile = New-TemporaryFile
                     $notes | Out-File -FilePath $tempFile.FullName -Encoding utf8
-                    gh release edit $tag --notes-file $tempFile.FullName
+                    
+                    # Retry up to 3 times in case release is still being created
+                    $retries = 0
+                    $success = $false
+                    while ($retries -lt 3 -and -not $success) {
+                      $result = gh release edit $tag --notes-file $tempFile.FullName 2>&1
+                      if ($LASTEXITCODE -eq 0) {
+                        $success = $true
+                        echo "Updated release $tag with changelog"
+                      } else {
+                        $retries++
+                        echo "Retry $retries/3 - waiting for release to be available..."
+                        Start-Sleep -Seconds 10
+                      }
+                    }
+                    
                     Remove-Item $tempFile.FullName
-                    echo "Updated release $tag with changelog"
+                    
+                    if (-not $success) {
+                      echo "Warning: Could not update release notes after 3 attempts"
+                    }
                   } else {
                     echo "No changelog found for version $version"
                   }
