@@ -247,16 +247,6 @@ const DEFAULT_APP_PATHS = {
     "C:\\Program Files (x86)\\Microsoft Teams\\MSTeams.exe",
     `${process.env.LOCALAPPDATA}\\Microsoft\\WindowsApps\\ms-teams.exe`,
   ],
-  discord: [
-    `${process.env.LOCALAPPDATA}\\Discord\\Update.exe`,
-    `${process.env.LOCALAPPDATA}\\Discord\\app-*\\Discord.exe`,
-    "C:\\Program Files\\Discord\\Discord.exe",
-  ],
-  notion: [
-    `${process.env.LOCALAPPDATA}\\Programs\\Notion\\Notion.exe`,
-    `${process.env.LOCALAPPDATA}\\Notion\\Notion.exe`,
-    "C:\\Program Files\\Notion\\Notion.exe",
-  ],
   figma: [
     `${process.env.LOCALAPPDATA}\\Figma\\Figma.exe`,
     `${process.env.LOCALAPPDATA}\\Programs\\Figma\\Figma.exe`,
@@ -302,10 +292,6 @@ const DEFAULT_APP_PATHS = {
   firefox: [
     "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
     "C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe",
-  ],
-  edge: [
-    "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-    "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
   ],
   mongodb: [
     `${process.env.LOCALAPPDATA}\\MongoDBCompass\\MongoDBCompass.exe`,
@@ -377,8 +363,6 @@ function getAppDisplayName(appKey) {
     hubstaffCli: "Hubstaff CLI",
     slack: "Slack",
     teams: "Microsoft Teams",
-    discord: "Discord",
-    notion: "Notion",
     figma: "Figma",
     postman: "Postman",
     docker: "Docker Desktop",
@@ -387,7 +371,6 @@ function getAppDisplayName(appKey) {
     pycharm: "PyCharm",
     chrome: "Google Chrome",
     firefox: "Firefox",
-    edge: "Microsoft Edge",
     mongodb: "MongoDB Compass",
     dbeaver: "DBeaver",
     tableplus: "TablePlus",

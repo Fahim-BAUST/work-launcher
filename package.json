@@ -1,7 +1,7 @@
 {
   "name": "work-launcher",
   "productName": "Work Launcher",
-  "version": "1.0.8",
+  "version": "1.0.14",
   "description": "Automatically launch work applications on startup",
   "main": "src/main/main.js",
   "scripts": {
@@ -67,6 +67,9 @@
       "installerHeaderIcon": "assets/icon.ico",
       "include": "build/installer.nsh"
     },
+    "releaseInfo": {
+      "releaseNotesFile": "CHANGELOG.md"
+    },
     "directories": {
       "output": "release"
     },
@@ -77,6 +80,10 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "CHANGELOG.md",
+        "to": "CHANGELOG.md"
       }
     ],
     "files": [

@@ -8,7 +8,6 @@ const appsList = document.getElementById("appsList");
 const noAppsMessage = document.getElementById("noAppsMessage");
 const launchNowBtn = document.getElementById("launchNowBtn");
 const saveBtn = document.getElementById("saveBtn");
-const quitBtn = document.getElementById("quitBtn");
 const notification = document.getElementById("notification");
 const notificationText = document.getElementById("notificationText");
 const themeToggle = document.getElementById("themeToggle");
@@ -20,6 +19,35 @@ const confirmAddBtn = document.getElementById("confirmAddBtn");
 const browseBtn = document.getElementById("browseBtn");
 const customAppName = document.getElementById("customAppName");
 const customAppPath = document.getElementById("customAppPath");
+
+// URL Modal DOM Elements
+const addUrlBtn = document.getElementById("addUrlBtn");
+const addUrlModal = document.getElementById("addUrlModal");
+const closeUrlModalBtn = document.getElementById("closeUrlModalBtn");
+const cancelUrlBtn = document.getElementById("cancelUrlBtn");
+const confirmUrlBtn = document.getElementById("confirmUrlBtn");
+const urlName = document.getElementById("urlName");
+const urlPath = document.getElementById("urlPath");
+const urlCategory = document.getElementById("urlCategory");
+
+// Search and Filter DOM Elements
+const appSearchInput = document.getElementById("appSearchInput");
+const categoryFilter = document.getElementById("categoryFilter");
+
+// Schedule DOM Elements
+const scheduleToggle = document.getElementById("scheduleToggle");
+const scheduleSettingsPanel = document.getElementById("scheduleSettings");
+const scheduleTime = document.getElementById("scheduleTime");
+
+// Day-Based Profiles DOM Elements
+const dayBasedProfilesToggle = document.getElementById(
+  "dayBasedProfilesToggle",
+);
+const dayProfileSettings = document.getElementById("dayProfileSettings");
+
+// Import/Export DOM Elements
+const exportSettingsBtn = document.getElementById("exportSettingsBtn");
+const importSettingsBtn = document.getElementById("importSettingsBtn");
 
 // Profile DOM Elements
 const addProfileBtn = document.getElementById("addProfileBtn");
@@ -79,6 +107,8 @@ const updateProgressBar = document.getElementById("updateProgressBar");
 const updatePercentage = document.getElementById("updatePercentage");
 const downloadUpdateBtn = document.getElementById("downloadUpdateBtn");
 const installUpdateBtn = document.getElementById("installUpdateBtn");
+const releaseNotesContainer = document.getElementById("releaseNotesContainer");
+const releaseNotesContent = document.getElementById("releaseNotesContent");
 
 // Image Lightbox DOM Elements
 const imageLightbox = document.getElementById("imageLightbox");
@@ -105,6 +135,85 @@ let draggedItem = null;
 let currentNotes = [];
 let activeNoteId = null;
 
+// Search and filter state
+let currentSearchTerm = "";
+let currentCategoryFilter = "all";
+
+// Schedule state
+let scheduleSettings = {
+  enabled: false,
+  time: "09:00",
+  days: [1, 2, 3, 4, 5],
+};
+
+// Day-based profiles state
+let dayBasedProfilesSettings = {
+  enabled: false,
+  mapping: {
+    0: "default",
+    1: "default",
+    2: "default",
+    3: "default",
+    4: "default",
+    5: "default",
+    6: "default",
+  },
+};
+
+// App icons cache
+const appIconsCache = {};
+
+// App category mapping
+const categoryMapping = {
+  slack: "communication",
+  teams: "communication",
+  discord: "communication",
+  zoom: "communication",
+  skype: "communication",
+  visualStudio: "development",
+  vscode: "development",
+  pycharm: "development",
+  intellij: "development",
+  webstorm: "development",
+  sublime: "development",
+  atom: "development",
+  notepad: "development",
+  git: "development",
+  postman: "development",
+  docker: "development",
+  chrome: "browser",
+  firefox: "browser",
+  edge: "browser",
+  opera: "browser",
+  brave: "browser",
+  notion: "productivity",
+  obsidian: "productivity",
+  todoist: "productivity",
+  trello: "productivity",
+  asana: "productivity",
+  figma: "productivity",
+  hubstaff: "productivity",
+  mongodb: "database",
+  dbeaver: "database",
+  tableplus: "database",
+  mysql: "database",
+  pgadmin: "database",
+  spotify: "media",
+  vlc: "media",
+};
+
+function getAppCategory(appKey, config) {
+  if (config && config.category) return config.category;
+  if (config && config.isUrl) return "url";
+  const key = appKey.toLowerCase().replace(/[^a-z]/g, "");
+  for (const [pattern, category] of Object.entries(categoryMapping)) {
+    if (key.includes(pattern.toLowerCase())) {
+      return category;
+    }
+  }
+  return "other";
+}
+
 // App display names mapping
 const appDisplayNames = {
   hubstaff: "Hubstaff",
@@ -128,27 +237,58 @@ const appDisplayNames = {
   spotify: "Spotify",
 };
 
-// App icons mapping
+// App icons mapping (generic icon for all apps)
+const defaultAppIcon =
+  '<svg class="app-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>';
+
 const appIcons = {
-  hubstaff: "⏱️",
-  hubstaffCli: "🔧",
-  slack: "💬",
-  teams: "👥",
-  discord: "🎮",
-  notion: "📓",
-  figma: "🎨",
-  postman: "📮",
-  docker: "🐳",
-  visualStudio: "💻",
-  vscode: "📝",
-  pycharm: "🐍",
-  chrome: "🌐",
-  firefox: "🦊",
-  edge: "🌊",
-  mongodb: "🍃",
-  dbeaver: "🗄️",
-  tableplus: "📊",
-  spotify: "🎵",
+  hubstaff: defaultAppIcon,
+  hubstaffCli: defaultAppIcon,
+  slack: defaultAppIcon,
+  teams: defaultAppIcon,
+  discord: defaultAppIcon,
+  notion: defaultAppIcon,
+  figma: defaultAppIcon,
+  postman: defaultAppIcon,
+  docker: defaultAppIcon,
+  visualStudio: defaultAppIcon,
+  vscode: defaultAppIcon,
+  pycharm: defaultAppIcon,
+  chrome: defaultAppIcon,
+  firefox: defaultAppIcon,
+  edge: defaultAppIcon,
+  mongodb: defaultAppIcon,
+  dbeaver: defaultAppIcon,
+  tableplus: defaultAppIcon,
+  spotify: defaultAppIcon,
+};
+
+// Icon SVG templates
+const icons = {
+  trash:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',
+  check:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M20 6 9 17l-5-5"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
+  rocket:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>',
+  eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>',
+  search:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
+  download:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>',
+  refresh:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>',
+  error:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>',
+  success:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>',
+  info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
+  loader:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg>',
+  sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>',
+  moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>',
 };
 
 // Custom confirm modal elements
@@ -253,15 +393,88 @@ async function saveAppOrder() {
 }
 
 /**
- * Render the apps list with drag-and-drop support
+ * Filter apps based on search term and category
+ */
+function filterApps(apps) {
+  return Object.entries(apps).filter(([key, config]) => {
+    // Always filter out internal apps
+    if (key === "hubstaffCli") return false;
+
+    // Search filter
+    if (currentSearchTerm) {
+      const searchLower = currentSearchTerm.toLowerCase();
+      const displayName = (
+        config.customName ||
+        appDisplayNames[key] ||
+        key
+      ).toLowerCase();
+      const path = config.path.toLowerCase();
+      if (!displayName.includes(searchLower) && !path.includes(searchLower)) {
+        return false;
+      }
+    }
+
+    // Category filter
+    if (currentCategoryFilter !== "all") {
+      const category = getAppCategory(key, config);
+      if (category !== currentCategoryFilter) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
+
+/**
+ * Load app icon from exe path
+ */
+async function loadAppIcon(appKey, exePath, imgElement) {
+  // Check cache first
+  if (appIconsCache[exePath]) {
+    imgElement.src = appIconsCache[exePath];
+    imgElement.classList.remove("hidden");
+    return;
+  }
+
+  try {
+    const iconDataUrl = await window.electronAPI.getAppIcon(exePath);
+    if (iconDataUrl) {
+      appIconsCache[exePath] = iconDataUrl;
+      imgElement.src = iconDataUrl;
+      imgElement.classList.remove("hidden");
+    }
+  } catch (error) {
+    // Keep default icon
+  }
+}
+
+/**
+ * Render the apps list with drag-and-drop support and filtering
  */
 function renderAppsList(apps) {
   appsList.innerHTML = "";
 
-  const appEntries = getOrderedAppEntries(apps);
+  // Get filtered entries
+  const filteredEntries = filterApps(apps);
+  const appEntries = filteredEntries.sort((a, b) => {
+    const orderA = currentAppOrder.indexOf(a[0]);
+    const orderB = currentAppOrder.indexOf(b[0]);
+    if (orderA !== -1 && orderB !== -1) return orderA - orderB;
+    if (orderA !== -1) return -1;
+    if (orderB !== -1) return 1;
+    return a[0].localeCompare(b[0]);
+  });
 
   if (appEntries.length === 0) {
-    noAppsMessage.style.display = "block";
+    if (currentSearchTerm || currentCategoryFilter !== "all") {
+      noAppsMessage.style.display = "block";
+      noAppsMessage.textContent = "No apps match the current filter.";
+    } else {
+      noAppsMessage.style.display = "block";
+      noAppsMessage.textContent =
+        'No applications detected. Click "Re-detect Apps" to scan for installed applications.';
+    }
     return;
   }
 
@@ -273,10 +486,15 @@ function renderAppsList(apps) {
     appItem.dataset.appKey = key;
     appItem.draggable = true;
 
-    // Check if it's a custom/scanned app or a pre-defined one
-    const isCustomOrScanned = config.isCustom || key.startsWith("scanned_");
-    const icon = isCustomOrScanned ? "📦" : appIcons[key] || "📦";
+    // Check if it's a custom/scanned app, URL, or a pre-defined one
+    const isCustomOrScanned =
+      config.isCustom ||
+      key.startsWith("scanned_") ||
+      key.startsWith("url_") ||
+      key.startsWith("custom_");
+    const isUrl = config.isUrl;
     const displayName = config.customName || appDisplayNames[key] || key;
+    const category = getAppCategory(key, config);
 
     // Add special note for Hubstaff
     let extraInfo = "";
@@ -285,25 +503,53 @@ function renderAppsList(apps) {
     }
 
     // Badge type
-    const badgeClass = isCustomOrScanned ? "custom" : "detected";
-    const badgeText = isCustomOrScanned ? "Custom" : "Detected";
+    let badgeClass = isCustomOrScanned ? "custom" : "detected";
+    let badgeText = isCustomOrScanned ? "Custom" : "Detected";
+    if (isUrl) {
+      badgeClass = "url";
+      badgeText = "URL";
+    }
+
+    // Icon - use image placeholder for real icons, fallback to SVG
+    const iconId = `icon-${key}`;
+    const defaultIcon = isUrl
+      ? '<svg class="app-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
+      : defaultAppIcon;
 
     appItem.innerHTML = `
-      <div class="drag-handle" title="Drag to reorder">⋮⋮</div>
+      <div class="drag-handle" title="Drag to reorder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+      </div>
       <div class="app-order-num">${index + 1}</div>
+      <div class="app-icon-container">
+        <img id="${iconId}" class="app-icon-img hidden" alt="" />
+        <span class="app-icon-fallback icon icon-sm">${defaultIcon}</span>
+      </div>
       <div class="app-info">
-        <div class="app-name">${icon} ${displayName} ${extraInfo}</div>
+        <div class="app-name">${displayName} ${extraInfo}</div>
         <div class="app-path">${config.path}</div>
+        <span class="category-tag category-${category}">${category}</span>
       </div>
       <div class="app-status">
         <span class="status-badge ${badgeClass}">${badgeText}</span>
-        ${isCustomOrScanned ? `<button class="btn-remove" data-app="${key}" title="Remove">🗑️</button>` : ""}
+        ${isCustomOrScanned ? `<button class="btn-remove" data-app="${key}" title="Remove"><span class="icon icon-sm">${icons.trash}</span></button>` : ""}
         <label class="switch">
           <input type="checkbox" data-app="${key}" ${config.enabled ? "checked" : ""}>
           <span class="slider"></span>
         </label>
       </div>
     `;
+
+    // Load real icon for non-URL apps
+    if (!isUrl && config.path) {
+      const imgEl = appItem.querySelector(`#${iconId}`);
+      const fallbackEl = appItem.querySelector(".app-icon-fallback");
+      loadAppIcon(key, config.path, imgEl).then(() => {
+        if (!imgEl.classList.contains("hidden")) {
+          fallbackEl.classList.add("hidden");
+        }
+      });
+    }
 
     // Drag and drop events
     appItem.addEventListener("dragstart", handleDragStart);
@@ -329,9 +575,9 @@ function renderAppsList(apps) {
   // Add event listeners to remove buttons
   document.querySelectorAll(".btn-remove").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
-      const appKey = e.target.dataset.app;
+      const appKey = e.target.dataset.app || e.currentTarget.dataset.app;
       const appName =
-        currentApps[appKey].customName || appDisplayNames[appKey] || appKey;
+        currentApps[appKey]?.customName || appDisplayNames[appKey] || appKey;
       if (confirm(`Remove "${appName}" from the list?`)) {
         currentApps = await window.electronAPI.removeApp(appKey);
         renderAppsList(currentApps);
@@ -409,7 +655,10 @@ function applyTheme(theme) {
   currentTheme = theme;
   document.body.classList.remove("light-theme", "dark-theme");
   document.body.classList.add(`${theme}-theme`);
-  themeToggle.textContent = theme === "dark" ? "☀️" : "🌙";
+  themeToggle.innerHTML =
+    theme === "dark"
+      ? `<span class="icon">${icons.sun}</span>`
+      : `<span class="icon">${icons.moon}</span>`;
   themeToggle.title =
     theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode";
 }
@@ -431,12 +680,12 @@ function renderProfilesList(profiles, activeId) {
 
     profileItem.innerHTML = `
       <div class="profile-info" data-profile-id="${id}">
-        <span class="profile-name">${id === activeId ? "✓ " : ""}${profile.name}</span>
+        <span class="profile-name">${id === activeId ? `<span class="icon icon-sm">${icons.check}</span> ` : ""}${profile.name}</span>
         <span class="profile-apps-count">${appCount} apps enabled</span>
       </div>
       <div class="profile-actions">
-        ${id !== "default" ? `<button class="btn-icon-sm btn-edit-profile" data-profile-id="${id}" title="Edit">✏️</button>` : ""}
-        ${id !== "default" ? `<button class="btn-icon-sm btn-delete-profile" data-profile-id="${id}" title="Delete">🗑️</button>` : ""}
+        ${id !== "default" ? `<button class="btn-icon-sm btn-edit-profile" data-profile-id="${id}" title="Edit"><span class="icon icon-sm">${icons.edit}</span></button>` : ""}
+        ${id !== "default" ? `<button class="btn-icon-sm btn-delete-profile" data-profile-id="${id}" title="Delete"><span class="icon icon-sm">${icons.trash}</span></button>` : ""}
       </div>
     `;
 
@@ -506,7 +755,7 @@ async function switchProfile(profileId) {
  */
 function openCreateProfileModal() {
   editingProfileId = null;
-  profileModalTitle.textContent = "➕ Create New Profile";
+  profileModalTitle.innerHTML = `<span class="icon icon-sm">${icons.plus}</span> Create New Profile`;
   confirmProfileBtn.textContent = "Create Profile";
   profileNameInput.value = "";
   profileModal.classList.remove("hidden");
@@ -517,7 +766,7 @@ function openCreateProfileModal() {
  */
 function openEditProfileModal(profileId) {
   editingProfileId = profileId;
-  profileModalTitle.textContent = "✏️ Edit Profile";
+  profileModalTitle.innerHTML = `<span class="icon icon-sm">${icons.edit}</span> Edit Profile`;
   confirmProfileBtn.textContent = "Save Changes";
   profileNameInput.value = currentProfiles[profileId].name;
   profileModal.classList.remove("hidden");
@@ -590,6 +839,24 @@ async function init() {
       showEmptyEditor();
     }
 
+    // Load scheduled launch settings
+    scheduleSettings = await window.electronAPI.getScheduledLaunch();
+    if (scheduleToggle) {
+      scheduleToggle.checked = scheduleSettings.enabled;
+      if (scheduleSettings.enabled && scheduleTime) {
+        scheduleTime.value = scheduleSettings.time || "09:00";
+        if (scheduleSettingsPanel)
+          scheduleSettingsPanel.classList.remove("hidden");
+      }
+      updateScheduleUI();
+    }
+
+    // Load day-based profiles settings
+    dayBasedProfilesSettings = await window.electronAPI.getDayBasedProfiles();
+    if (dayBasedProfilesToggle) {
+      dayBasedProfilesToggle.checked = dayBasedProfilesSettings.enabled;
+      updateDayBasedProfilesUI();
+    }
     // Listen for profile changes from tray menu
     window.electronAPI.onProfileChanged(async (profileId) => {
       activeProfileId = profileId;
@@ -624,9 +891,7 @@ async function init() {
 autoLaunchToggle.addEventListener("change", async (e) => {
   try {
     await window.electronAPI.toggleAutoLaunch(e.target.checked);
-    showNotification(
-      e.target.checked ? "Startup enabled ✓" : "Startup disabled",
-    );
+    showNotification(e.target.checked ? "Startup enabled" : "Startup disabled");
   } catch (error) {
     console.error("Failed to toggle auto-launch:", error);
     showNotification("Failed to change startup setting", true);
@@ -638,7 +903,7 @@ autoLaunchToggle.addEventListener("change", async (e) => {
 detectAppsBtn.addEventListener("click", async () => {
   try {
     detectAppsBtn.disabled = true;
-    detectAppsBtn.textContent = "🔍 Scanning...";
+    detectAppsBtn.innerHTML = `<span class="icon icon-sm">${icons.search}</span> Scanning...`;
 
     currentApps = await window.electronAPI.detectApps();
     renderAppsList(currentApps);
@@ -653,7 +918,7 @@ detectAppsBtn.addEventListener("click", async () => {
     showNotification("Failed to detect applications", true);
   } finally {
     detectAppsBtn.disabled = false;
-    detectAppsBtn.textContent = "🔍 Re-detect";
+    detectAppsBtn.innerHTML = `<span class="icon icon-sm">${icons.search}</span> Re-detect`;
   }
 });
 
@@ -661,7 +926,7 @@ detectAppsBtn.addEventListener("click", async () => {
 launchNowBtn.addEventListener("click", async () => {
   try {
     launchNowBtn.disabled = true;
-    launchNowBtn.textContent = "🚀 Launching...";
+    launchNowBtn.innerHTML = `<span class="icon icon-sm">${icons.rocket}</span> Launching...`;
 
     // Save current settings first
     await window.electronAPI.saveApps(currentApps);
@@ -686,7 +951,7 @@ launchNowBtn.addEventListener("click", async () => {
     showNotification("Failed to launch applications", true);
   } finally {
     launchNowBtn.disabled = false;
-    launchNowBtn.textContent = "🚀 Launch All Apps Now";
+    launchNowBtn.innerHTML = `<span class="icon icon-sm">${icons.rocket}</span> Launch All Apps Now`;
   }
 });
 
@@ -696,7 +961,7 @@ startupDialogToggle.addEventListener("change", async (e) => {
     await window.electronAPI.toggleShowStartupDialog(e.target.checked);
     showNotification(
       e.target.checked
-        ? "Startup dialog enabled ✓"
+        ? "Startup dialog enabled"
         : "Startup dialog disabled - Apps will launch automatically",
     );
   } catch (error) {
@@ -712,20 +977,13 @@ minimizeToTrayToggle.addEventListener("change", async (e) => {
     await window.electronAPI.toggleMinimizeToTray(e.target.checked);
     showNotification(
       e.target.checked
-        ? "Minimize to tray enabled ✓"
+        ? "Minimize to tray enabled"
         : "App will close completely when window closed",
     );
   } catch (error) {
     console.error("Failed to toggle minimize to tray:", error);
     showNotification("Failed to change setting", true);
     e.target.checked = !e.target.checked;
-  }
-});
-
-// Quit button
-quitBtn.addEventListener("click", async () => {
-  if (confirm("Are you sure you want to quit Work Launcher completely?")) {
-    await window.electronAPI.quitApp();
   }
 });
 
@@ -757,9 +1015,7 @@ shortcutToggle.addEventListener("change", async (e) => {
   try {
     await window.electronAPI.setShortcutEnabled(e.target.checked);
     showNotification(
-      e.target.checked
-        ? "Global shortcut enabled ✓"
-        : "Global shortcut disabled",
+      e.target.checked ? "Global shortcut enabled" : "Global shortcut disabled",
     );
   } catch (error) {
     console.error("Failed to toggle shortcut:", error);
@@ -881,7 +1137,7 @@ function loadNoteToEditor(noteId) {
 
   // Default to Read mode when loading an existing note
   isEditMode = false;
-  toggleEditModeBtn.textContent = "✏️ Edit";
+  toggleEditModeBtn.innerHTML = `<span class="icon icon-sm">${icons.edit}</span> Edit`;
   toggleEditModeBtn.title = "Switch to Edit Mode";
   noteEditor.classList.add("hidden");
   editorToolbar.classList.add("hidden");
@@ -904,7 +1160,7 @@ function loadNoteToEditor(noteId) {
     noteUpdatedAt.textContent = "";
   }
 
-  notesSaveStatus.textContent = "✓ Saved";
+  notesSaveStatus.textContent = "Saved";
   notesSaveStatus.classList.remove("warning", "error");
 
   // Update active state in list
@@ -942,12 +1198,12 @@ async function saveCurrentNote() {
       title,
       content,
     );
-    notesSaveStatus.textContent = "✓ Saved";
+    notesSaveStatus.textContent = "Saved";
     notesSaveStatus.classList.remove("saving", "warning");
     renderNotesList();
   } catch (error) {
     console.error("Failed to save note:", error);
-    notesSaveStatus.textContent = "❌ Error";
+    notesSaveStatus.textContent = "Error";
     notesSaveStatus.classList.add("error");
   }
 }
@@ -983,7 +1239,7 @@ async function createNewNote() {
 
   // Switch to Edit mode for new notes
   isEditMode = true;
-  toggleEditModeBtn.textContent = "👁️ Read";
+  toggleEditModeBtn.innerHTML = `<span class="icon icon-sm">${icons.eye}</span> Read`;
   toggleEditModeBtn.title = "Switch to Read Mode";
   noteEditor.classList.remove("hidden");
   editorToolbar.classList.remove("hidden");
@@ -1058,7 +1314,7 @@ toggleEditModeBtn.addEventListener("click", () => {
 
   if (isEditMode) {
     // Switch to Edit mode
-    toggleEditModeBtn.textContent = "👁️ Read";
+    toggleEditModeBtn.innerHTML = `<span class="icon icon-sm">${icons.eye}</span> Read`;
     toggleEditModeBtn.title = "Switch to Read Mode";
     noteEditor.classList.remove("hidden");
     editorToolbar.classList.remove("hidden");
@@ -1070,7 +1326,7 @@ toggleEditModeBtn.addEventListener("click", () => {
   } else {
     // Switch to Read mode - save first
     saveCurrentNote();
-    toggleEditModeBtn.textContent = "✏️ Edit";
+    toggleEditModeBtn.innerHTML = `<span class="icon icon-sm">${icons.edit}</span> Edit`;
     toggleEditModeBtn.title = "Switch to Edit Mode";
     noteEditor.classList.add("hidden");
     editorToolbar.classList.add("hidden");
@@ -1123,7 +1379,7 @@ deleteSelectedNotes.addEventListener("click", async () => {
 
 // Note title input - auto-save with debounce
 noteTitleInput.addEventListener("input", () => {
-  notesSaveStatus.textContent = "⏳ Saving...";
+  notesSaveStatus.textContent = "Saving...";
   notesSaveStatus.classList.add("saving");
 
   clearTimeout(notesDebounceTimer);
@@ -1132,11 +1388,49 @@ noteTitleInput.addEventListener("input", () => {
 
 // Note editor - auto-save with debounce
 noteEditor.addEventListener("input", () => {
-  notesSaveStatus.textContent = "⏳ Saving...";
+  notesSaveStatus.textContent = "Saving...";
   notesSaveStatus.classList.add("saving");
 
   clearTimeout(notesDebounceTimer);
   notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+});
+
+// Handle keyboard events for better code block deletion
+noteEditor.addEventListener("keydown", (e) => {
+  // Handle Ctrl+Shift+Backspace to delete entire code block
+  if (
+    (e.key === "Backspace" || e.key === "Delete") &&
+    e.ctrlKey &&
+    e.shiftKey
+  ) {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+      let node = selection.getRangeAt(0).startContainer;
+      if (node.nodeType === Node.TEXT_NODE) {
+        node = node.parentNode;
+      }
+
+      // Find if we're inside a code block wrapper
+      let currentNode = node;
+      while (currentNode && currentNode !== noteEditor) {
+        if (
+          currentNode.classList &&
+          currentNode.classList.contains("code-block-wrapper")
+        ) {
+          e.preventDefault();
+          currentNode.remove();
+          noteEditor.focus();
+          // Trigger save
+          notesSaveStatus.textContent = "Saving...";
+          notesSaveStatus.classList.add("saving");
+          clearTimeout(notesDebounceTimer);
+          notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+          return;
+        }
+        currentNode = currentNode.parentNode;
+      }
+    }
+  }
 });
 
 // Rich text toolbar commands
@@ -1157,7 +1451,7 @@ document
       noteEditor.focus();
 
       // Trigger save after formatting
-      notesSaveStatus.textContent = "⏳ Saving...";
+      notesSaveStatus.textContent = "Saving...";
       notesSaveStatus.classList.add("saving");
       clearTimeout(notesDebounceTimer);
       notesDebounceTimer = setTimeout(saveCurrentNote, 500);
@@ -1168,34 +1462,82 @@ document
 document.getElementById("insertCodeBlockBtn").addEventListener("click", (e) => {
   e.preventDefault();
 
+  // Ensure editor has focus
+  noteEditor.focus();
+
   const selection = window.getSelection();
   const selectedText = selection.toString() || "// Your code here";
 
-  // Create code block element
+  // Create code block element with delete button
+  const codeBlockWrapper = document.createElement("div");
+  codeBlockWrapper.className = "code-block-wrapper";
+
   const pre = document.createElement("pre");
+  pre.contentEditable = "true"; // Make pre editable
   const code = document.createElement("code");
   code.textContent = selectedText;
   pre.appendChild(code);
 
-  // Insert at cursor position
+  // Add delete button
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "code-block-delete";
+  deleteBtn.contentEditable = "false"; // Keep button non-editable
+  deleteBtn.innerHTML = "✕";
+  deleteBtn.title = "Remove code block";
+  deleteBtn.onclick = function (event) {
+    event.stopPropagation();
+    event.preventDefault();
+    codeBlockWrapper.remove();
+    noteEditor.focus();
+    // Trigger save
+    notesSaveStatus.textContent = "Saving...";
+    notesSaveStatus.classList.add("saving");
+    clearTimeout(notesDebounceTimer);
+    notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+  };
+
+  codeBlockWrapper.appendChild(deleteBtn);
+  codeBlockWrapper.appendChild(pre);
+
+  // Insert at cursor position in the editor
   if (selection.rangeCount > 0) {
     const range = selection.getRangeAt(0);
-    range.deleteContents();
-    range.insertNode(pre);
+    // Check if the range is inside the note editor
+    let container = range.commonAncestorContainer;
+    let isInsideEditor = false;
+    while (container) {
+      if (container === noteEditor) {
+        isInsideEditor = true;
+        break;
+      }
+      container = container.parentNode;
+    }
 
-    // Move cursor after the code block
-    range.setStartAfter(pre);
-    range.setEndAfter(pre);
-    selection.removeAllRanges();
-    selection.addRange(range);
+    if (isInsideEditor) {
+      range.deleteContents();
+      range.insertNode(codeBlockWrapper);
+      // Add a space after the code block for easier editing
+      const space = document.createTextNode("\u00A0");
+      range.setStartAfter(codeBlockWrapper);
+      range.insertNode(space);
+      range.setStartAfter(space);
+      range.setEndAfter(space);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    } else {
+      // If not inside editor, append to editor
+      noteEditor.appendChild(codeBlockWrapper);
+      noteEditor.appendChild(document.createTextNode("\u00A0"));
+    }
   } else {
-    noteEditor.appendChild(pre);
+    noteEditor.appendChild(codeBlockWrapper);
+    noteEditor.appendChild(document.createTextNode("\u00A0"));
   }
 
   noteEditor.focus();
 
   // Trigger save
-  notesSaveStatus.textContent = "⏳ Saving...";
+  notesSaveStatus.textContent = "Saving...";
   notesSaveStatus.classList.add("saving");
   clearTimeout(notesDebounceTimer);
   notesDebounceTimer = setTimeout(saveCurrentNote, 500);
@@ -1222,7 +1564,7 @@ textColorPicker.addEventListener("input", (e) => {
   noteEditor.focus();
 
   // Trigger save
-  notesSaveStatus.textContent = "⏳ Saving...";
+  notesSaveStatus.textContent = "Saving...";
   notesSaveStatus.classList.add("saving");
   clearTimeout(notesDebounceTimer);
   notesDebounceTimer = setTimeout(saveCurrentNote, 500);
@@ -1243,26 +1585,10 @@ highlightColorPicker.addEventListener("input", (e) => {
   noteEditor.focus();
 
   // Trigger save
-  notesSaveStatus.textContent = "⏳ Saving...";
+  notesSaveStatus.textContent = "Saving...";
   notesSaveStatus.classList.add("saving");
   clearTimeout(notesDebounceTimer);
   notesDebounceTimer = setTimeout(saveCurrentNote, 500);
-});
-
-// Font size select handler
-document.getElementById("fontSizeSelect").addEventListener("change", (e) => {
-  const size = e.target.value;
-  if (size) {
-    document.execCommand("fontSize", false, size);
-    noteEditor.focus();
-
-    // Trigger save
-    notesSaveStatus.textContent = "⏳ Saving...";
-    notesSaveStatus.classList.add("saving");
-    clearTimeout(notesDebounceTimer);
-    notesDebounceTimer = setTimeout(saveCurrentNote, 500);
-  }
-  e.target.value = ""; // Reset select
 });
 
 // Insert link handler
@@ -1297,7 +1623,7 @@ document
       noteEditor.focus();
 
       // Trigger save
-      notesSaveStatus.textContent = "⏳ Saving...";
+      notesSaveStatus.textContent = "Saving...";
       notesSaveStatus.classList.add("saving");
       clearTimeout(notesDebounceTimer);
       notesDebounceTimer = setTimeout(saveCurrentNote, 500);
@@ -1311,7 +1637,7 @@ document.getElementById("insertHrBtn").addEventListener("click", (e) => {
   noteEditor.focus();
 
   // Trigger save
-  notesSaveStatus.textContent = "⏳ Saving...";
+  notesSaveStatus.textContent = "Saving...";
   notesSaveStatus.classList.add("saving");
   clearTimeout(notesDebounceTimer);
   notesDebounceTimer = setTimeout(saveCurrentNote, 500);
@@ -1324,7 +1650,7 @@ document.getElementById("clearFormattingBtn").addEventListener("click", (e) => {
   noteEditor.focus();
 
   // Trigger save
-  notesSaveStatus.textContent = "⏳ Saving...";
+  notesSaveStatus.textContent = "Saving...";
   notesSaveStatus.classList.add("saving");
   clearTimeout(notesDebounceTimer);
   notesDebounceTimer = setTimeout(saveCurrentNote, 500);
@@ -1367,7 +1693,7 @@ noteEditor.addEventListener("paste", async (e) => {
         setTimeout(wrapImagesWithResizeHandles, 100);
 
         // Trigger save
-        notesSaveStatus.textContent = "⏳ Saving...";
+        notesSaveStatus.textContent = "Saving...";
         notesSaveStatus.classList.add("saving");
         clearTimeout(notesDebounceTimer);
         notesDebounceTimer = setTimeout(saveCurrentNote, 500);
@@ -1585,7 +1911,7 @@ function stopResize() {
   document.removeEventListener("mouseup", stopResize);
 
   // Save after resize
-  notesSaveStatus.textContent = "⏳ Saving...";
+  notesSaveStatus.textContent = "Saving...";
   notesSaveStatus.classList.add("saving");
   clearTimeout(notesDebounceTimer);
   notesDebounceTimer = setTimeout(saveCurrentNote, 500);
@@ -1631,27 +1957,27 @@ const APP_DISPLAY_NAMES = {
   spotify: "Spotify",
 };
 
-// App icons mapping
+// App icons mapping - use generic icon
 const APP_ICONS = {
-  hubstaff: "⏱️",
-  hubstaffCli: "⌨️",
-  slack: "💬",
-  teams: "👥",
-  discord: "🎮",
-  notion: "📝",
-  figma: "🎨",
-  postman: "📮",
-  docker: "🐳",
-  visualStudio: "💻",
-  vscode: "📘",
-  pycharm: "🐍",
-  chrome: "🌐",
-  firefox: "🦊",
-  edge: "🌊",
-  mongodb: "🍃",
-  dbeaver: "🦫",
-  tableplus: "📊",
-  spotify: "🎵",
+  hubstaff: defaultAppIcon,
+  hubstaffCli: defaultAppIcon,
+  slack: defaultAppIcon,
+  teams: defaultAppIcon,
+  discord: defaultAppIcon,
+  notion: defaultAppIcon,
+  figma: defaultAppIcon,
+  postman: defaultAppIcon,
+  docker: defaultAppIcon,
+  visualStudio: defaultAppIcon,
+  vscode: defaultAppIcon,
+  pycharm: defaultAppIcon,
+  chrome: defaultAppIcon,
+  firefox: defaultAppIcon,
+  edge: defaultAppIcon,
+  mongodb: defaultAppIcon,
+  dbeaver: defaultAppIcon,
+  tableplus: defaultAppIcon,
+  spotify: defaultAppIcon,
 };
 
 function switchAddAppTab(tab) {
@@ -1726,7 +2052,7 @@ function renderInstalledAppsList(filter = "") {
   filteredApps.forEach(([key, app]) => {
     // Use displayName from app if available (for scanned apps)
     const displayName = app.displayName || APP_DISPLAY_NAMES[key] || key;
-    const icon = APP_ICONS[key] || "📦";
+    const icon = APP_ICONS[key] || defaultAppIcon;
     const isAlreadyAdded = currentApps[key] !== undefined;
 
     const item = document.createElement("div");
@@ -1772,10 +2098,11 @@ async function openModal() {
   // Reset to first tab
   switchAddAppTab("list");
 
-  // Load available apps
-  await loadAvailableApps();
-
+  // Show modal first so user sees the loader
   addAppModal.classList.remove("hidden");
+
+  // Then load available apps (loader will be visible)
+  await loadAvailableApps();
 }
 
 function closeModal() {
@@ -1919,7 +2246,7 @@ saveBtn.addEventListener("click", async () => {
     // Update profiles list to reflect new app counts
     currentProfiles = await window.electronAPI.getProfiles();
     renderProfilesList(currentProfiles, activeProfileId);
-    showNotification("Settings saved ✓");
+    showNotification("Settings saved");
   } catch (error) {
     console.error("Failed to save settings:", error);
     showNotification("Failed to save settings", true);
@@ -1931,12 +2258,48 @@ saveBtn.addEventListener("click", async () => {
 // ============================================
 
 /**
+ * Convert markdown to simple HTML for release notes
+ */
+function markdownToHtml(markdown) {
+  if (!markdown) return "<p>No release notes available.</p>";
+
+  return (
+    markdown
+      // Headers
+      .replace(/^### (.+)$/gm, '<h5 class="release-notes-h5">$1</h5>')
+      .replace(/^## (.+)$/gm, '<h4 class="release-notes-h4">$1</h4>')
+      .replace(/^# (.+)$/gm, '<h3 class="release-notes-h3">$1</h3>')
+      // Bold
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      // Italic
+      .replace(/\*(.+?)\*/g, "<em>$1</em>")
+      // Code
+      .replace(/`(.+?)`/g, "<code>$1</code>")
+      // Unordered lists
+      .replace(/^- (.+)$/gm, "<li>$1</li>")
+      // Wrap consecutive <li> tags in <ul>
+      .replace(/(<li>.*<\/li>\n?)+/g, "<ul>$&</ul>")
+      // Line breaks
+      .replace(/\n\n/g, "</p><p>")
+      .replace(/\n/g, "<br>")
+      // Wrap in paragraphs
+      .replace(/^(?!<[hul])/gm, "<p>")
+      .replace(/(?<![>])$/gm, "</p>")
+      // Clean up empty paragraphs
+      .replace(/<p><\/p>/g, "")
+      .replace(/<p><br><\/p>/g, "")
+      .replace(/<p>(<[hul])/g, "$1")
+      .replace(/(<\/[hul][l>])<\/p>/g, "$1")
+  );
+}
+
+/**
  * Setup update event listeners
  */
 function setupUpdateListeners() {
   // Listen for update available
-  window.electronAPI.onUpdateAvailable((info) => {
-    updateIcon.textContent = "🎉";
+  window.electronAPI.onUpdateAvailable(async (info) => {
+    updateIcon.innerHTML = `<span class="icon">${icons.download}</span>`;
     updateStatusText.textContent = `New version available!`;
     newVersionBadge.classList.remove("hidden");
     newVersionNumber.textContent = `v${info.version}`;
@@ -1944,11 +2307,27 @@ function setupUpdateListeners() {
     checkUpdateBtn.classList.add("hidden");
     downloadUpdateBtn.classList.remove("hidden");
     downloadUpdateBtn.disabled = false;
-    downloadUpdateBtn.textContent = "⬇️ Download Update";
+    downloadUpdateBtn.innerHTML = `<span class="icon icon-sm">${icons.download}</span> Download Update`;
     installUpdateBtn.classList.add("hidden");
 
     // Show notification dot on update button
     updateDot.classList.remove("hidden");
+
+    // Fetch and display release notes
+    try {
+      const releaseInfo = await window.electronAPI.getReleaseNotes(
+        info.version,
+      );
+      if (releaseInfo && releaseInfo.body) {
+        releaseNotesContainer.classList.remove("hidden");
+        releaseNotesContent.innerHTML = markdownToHtml(releaseInfo.body);
+      } else {
+        releaseNotesContainer.classList.add("hidden");
+      }
+    } catch (error) {
+      console.error("Failed to fetch release notes:", error);
+      releaseNotesContainer.classList.add("hidden");
+    }
 
     // Auto-open the modal
     updateModal.classList.remove("hidden");
@@ -1956,13 +2335,14 @@ function setupUpdateListeners() {
 
   // Listen for no update available
   window.electronAPI.onUpdateNotAvailable(() => {
-    updateIcon.textContent = "✅";
+    updateIcon.innerHTML = `<span class="icon">${icons.success}</span>`;
     updateStatusText.textContent = "You're up to date!";
     newVersionBadge.classList.add("hidden");
     updateProgressContainer.classList.add("hidden");
+    releaseNotesContainer.classList.add("hidden");
     checkUpdateBtn.classList.remove("hidden");
     checkUpdateBtn.disabled = false;
-    checkUpdateBtn.textContent = "🔍 Check for Updates";
+    checkUpdateBtn.innerHTML = `<span class="icon icon-sm">${icons.search}</span> Check for Updates`;
     downloadUpdateBtn.classList.add("hidden");
     installUpdateBtn.classList.add("hidden");
 
@@ -1973,7 +2353,7 @@ function setupUpdateListeners() {
   // Listen for download progress
   window.electronAPI.onUpdateProgress((percent) => {
     const roundedPercent = Math.round(percent);
-    updateIcon.textContent = "⬇️";
+    updateIcon.innerHTML = `<span class="icon">${icons.download}</span>`;
     updateStatusText.textContent = "Downloading update...";
     updateProgressContainer.classList.remove("hidden");
     updatePercentage.textContent = `${roundedPercent}%`;
@@ -1985,7 +2365,7 @@ function setupUpdateListeners() {
 
   // Listen for update downloaded
   window.electronAPI.onUpdateDownloaded((info) => {
-    updateIcon.textContent = "🚀";
+    updateIcon.innerHTML = `<span class="icon">${icons.rocket}</span>`;
     updateStatusText.textContent = "Update ready to install!";
     updateProgressContainer.classList.add("hidden");
     updateProgressBar.style.width = "100%";
@@ -1993,18 +2373,18 @@ function setupUpdateListeners() {
     downloadUpdateBtn.classList.add("hidden");
     installUpdateBtn.classList.remove("hidden");
     installUpdateBtn.disabled = false;
-    installUpdateBtn.textContent = "🔄 Install & Restart";
+    installUpdateBtn.innerHTML = `<span class="icon icon-sm">${icons.refresh}</span> Install & Restart`;
   });
 
   // Listen for update error
   window.electronAPI.onUpdateError((message) => {
-    updateIcon.textContent = "❌";
+    updateIcon.innerHTML = `<span class="icon">${icons.error}</span>`;
     updateStatusText.textContent = `Error: ${message}`;
     updateProgressContainer.classList.add("hidden");
     newVersionBadge.classList.add("hidden");
     checkUpdateBtn.classList.remove("hidden");
     checkUpdateBtn.disabled = false;
-    checkUpdateBtn.textContent = "🔍 Check for Updates";
+    checkUpdateBtn.innerHTML = `<span class="icon icon-sm">${icons.search}</span> Check for Updates`;
     downloadUpdateBtn.classList.add("hidden");
     installUpdateBtn.classList.add("hidden");
 
@@ -2033,27 +2413,44 @@ updateModal.addEventListener("click", (e) => {
 // Check for updates button
 checkUpdateBtn.addEventListener("click", async () => {
   checkUpdateBtn.disabled = true;
-  checkUpdateBtn.textContent = "⏳ Checking...";
-  updateIcon.textContent = "🔍";
+  checkUpdateBtn.innerHTML = `<span class="icon icon-sm">${icons.loader}</span> Checking...`;
+  updateIcon.innerHTML = `<span class="icon">${icons.search}</span>`;
   updateStatusText.textContent = "Checking for updates...";
   updateProgressContainer.classList.add("hidden");
   newVersionBadge.classList.add("hidden");
 
   try {
-    await window.electronAPI.checkForUpdates();
+    const result = await window.electronAPI.checkForUpdates();
+
+    // Handle the response directly (for dev mode or fallback)
+    if (result) {
+      if (result.error) {
+        updateIcon.innerHTML = `<span class="icon">${icons.error}</span>`;
+        updateStatusText.textContent = `Error: ${result.error}`;
+        checkUpdateBtn.disabled = false;
+        checkUpdateBtn.innerHTML = `<span class="icon icon-sm">${icons.search}</span> Check for Updates`;
+      } else if (result.message) {
+        // Dev mode message
+        updateIcon.innerHTML = `<span class="icon">${icons.info}</span>`;
+        updateStatusText.textContent = result.message;
+        checkUpdateBtn.disabled = false;
+        checkUpdateBtn.innerHTML = `<span class="icon icon-sm">${icons.search}</span> Check for Updates`;
+      }
+      // If updateAvailable is in result, the autoUpdater events will handle UI
+    }
   } catch (error) {
-    updateIcon.textContent = "❌";
+    updateIcon.innerHTML = `<span class="icon">${icons.error}</span>`;
     updateStatusText.textContent = `Error: ${error.message}`;
     checkUpdateBtn.disabled = false;
-    checkUpdateBtn.textContent = "🔍 Check for Updates";
+    checkUpdateBtn.innerHTML = `<span class="icon icon-sm">${icons.search}</span> Check for Updates`;
   }
 });
 
 // Download update button
 downloadUpdateBtn.addEventListener("click", async () => {
   downloadUpdateBtn.disabled = true;
-  downloadUpdateBtn.textContent = "⏳ Starting...";
-  updateIcon.textContent = "⬇️";
+  downloadUpdateBtn.innerHTML = `<span class="icon icon-sm">${icons.loader}</span> Starting...`;
+  updateIcon.innerHTML = `<span class="icon">${icons.download}</span>`;
   updateStatusText.textContent = "Starting download...";
   updateProgressContainer.classList.remove("hidden");
   updatePercentage.textContent = "0%";
@@ -2062,10 +2459,10 @@ downloadUpdateBtn.addEventListener("click", async () => {
   try {
     await window.electronAPI.downloadUpdate();
   } catch (error) {
-    updateIcon.textContent = "❌";
+    updateIcon.innerHTML = `<span class="icon">${icons.error}</span>`;
     updateStatusText.textContent = `Error: ${error.message}`;
     downloadUpdateBtn.disabled = false;
-    downloadUpdateBtn.textContent = "⬇️ Download Update";
+    downloadUpdateBtn.innerHTML = `<span class="icon icon-sm">${icons.download}</span> Download Update`;
     downloadUpdateBtn.classList.remove("hidden");
   }
 });
@@ -2073,12 +2470,294 @@ downloadUpdateBtn.addEventListener("click", async () => {
 // Install update button
 installUpdateBtn.addEventListener("click", async () => {
   installUpdateBtn.disabled = true;
-  installUpdateBtn.textContent = "⏳ Installing...";
-  updateIcon.textContent = "🔄";
+  installUpdateBtn.innerHTML = `<span class="icon icon-sm">${icons.loader}</span> Installing...`;
+  updateIcon.innerHTML = `<span class="icon">${icons.refresh}</span>`;
   updateStatusText.textContent = "Installing and restarting...";
 
   await window.electronAPI.installUpdate();
 });
+
+// ========================================
+// New Features Event Handlers
+// ========================================
+
+// App Search
+if (appSearchInput) {
+  appSearchInput.addEventListener("input", (e) => {
+    currentSearchTerm = e.target.value;
+    renderAppsList(currentApps);
+  });
+}
+
+// Category Filter
+if (categoryFilter) {
+  categoryFilter.addEventListener("change", (e) => {
+    currentCategoryFilter = e.target.value;
+    renderAppsList(currentApps);
+  });
+}
+
+// URL Modal Handlers
+if (addUrlBtn) {
+  addUrlBtn.addEventListener("click", () => {
+    addUrlModal.classList.remove("hidden");
+    urlName.value = "";
+    urlPath.value = "";
+    urlCategory.value = "url";
+  });
+}
+
+if (closeUrlModalBtn) {
+  closeUrlModalBtn.addEventListener("click", () => {
+    addUrlModal.classList.add("hidden");
+  });
+}
+
+if (cancelUrlBtn) {
+  cancelUrlBtn.addEventListener("click", () => {
+    addUrlModal.classList.add("hidden");
+  });
+}
+
+if (confirmUrlBtn) {
+  confirmUrlBtn.addEventListener("click", async () => {
+    const name = urlName.value.trim();
+    const url = urlPath.value.trim();
+    const category = urlCategory.value;
+
+    if (!name || !url) {
+      showNotification("Please enter both name and URL", "error");
+      return;
+    }
+
+    // Validate URL
+    try {
+      new URL(url);
+    } catch {
+      showNotification("Please enter a valid URL", "error");
+      return;
+    }
+
+    try {
+      currentApps = await window.electronAPI.addUrl(name, url, category);
+      renderAppsList(currentApps);
+      addUrlModal.classList.add("hidden");
+      showNotification(`Added "${name}"`);
+    } catch (error) {
+      showNotification("Failed to add URL", "error");
+    }
+  });
+}
+
+// Close URL modal on backdrop click
+if (addUrlModal) {
+  addUrlModal.addEventListener("click", (e) => {
+    if (e.target === addUrlModal) {
+      addUrlModal.classList.add("hidden");
+    }
+  });
+}
+
+// Schedule Toggle Handler
+function updateScheduleUI() {
+  if (!scheduleSettings) return;
+
+  // Update time input
+  if (scheduleTime && scheduleSettings.time) {
+    scheduleTime.value = scheduleSettings.time;
+  }
+
+  // Update toggle
+  if (scheduleToggle) {
+    scheduleToggle.checked = scheduleSettings.enabled || false;
+  }
+
+  // Show/hide settings panel
+  if (scheduleSettingsPanel) {
+    if (scheduleSettings.enabled) {
+      scheduleSettingsPanel.classList.remove("hidden");
+    } else {
+      scheduleSettingsPanel.classList.add("hidden");
+    }
+  }
+
+  // Update day buttons
+  const dayBtns = document.querySelectorAll(".day-btn");
+  dayBtns.forEach((btn) => {
+    const day = parseInt(btn.dataset.day);
+    if (scheduleSettings.days && scheduleSettings.days.includes(day)) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+}
+
+if (scheduleToggle) {
+  scheduleToggle.addEventListener("change", async (e) => {
+    scheduleSettings.enabled = e.target.checked;
+    updateScheduleUI();
+    await window.electronAPI.setScheduledLaunch(scheduleSettings);
+    showNotification(
+      e.target.checked
+        ? "Scheduled launch enabled"
+        : "Scheduled launch disabled",
+    );
+  });
+}
+
+if (scheduleTime) {
+  scheduleTime.addEventListener("change", async (e) => {
+    scheduleSettings.time = e.target.value;
+    await window.electronAPI.setScheduledLaunch(scheduleSettings);
+    showNotification(`Launch time set to ${e.target.value}`);
+  });
+}
+
+// Day buttons for schedule
+document.querySelectorAll(".day-btn").forEach((btn) => {
+  btn.addEventListener("click", async (e) => {
+    const day = parseInt(e.target.dataset.day);
+    const index = scheduleSettings.days.indexOf(day);
+
+    if (index > -1) {
+      scheduleSettings.days.splice(index, 1);
+      e.target.classList.remove("active");
+    } else {
+      scheduleSettings.days.push(day);
+      scheduleSettings.days.sort();
+      e.target.classList.add("active");
+    }
+
+    await window.electronAPI.setScheduledLaunch(scheduleSettings);
+  });
+});
+
+// Day-Based Profiles Handlers
+function updateDayBasedProfilesUI() {
+  if (!dayBasedProfilesSettings) return;
+
+  // Show/hide settings panel
+  const panel = document.getElementById("dayProfileSettings");
+  if (panel) {
+    if (dayBasedProfilesSettings.enabled) {
+      panel.classList.remove("hidden");
+    } else {
+      panel.classList.add("hidden");
+    }
+  }
+
+  // Populate profile selects
+  const selects = document.querySelectorAll(".day-profile-select");
+  selects.forEach((select) => {
+    const day = select.dataset.day;
+    select.innerHTML = "";
+
+    for (const [id, profile] of Object.entries(currentProfiles)) {
+      const option = document.createElement("option");
+      option.value = id;
+      option.textContent = profile.name;
+      if (
+        dayBasedProfilesSettings.mapping &&
+        dayBasedProfilesSettings.mapping[day] === id
+      ) {
+        option.selected = true;
+      }
+      select.appendChild(option);
+    }
+  });
+}
+
+if (dayBasedProfilesToggle) {
+  dayBasedProfilesToggle.addEventListener("change", async (e) => {
+    dayBasedProfilesSettings.enabled = e.target.checked;
+    updateDayBasedProfilesUI();
+    await window.electronAPI.setDayBasedProfiles(dayBasedProfilesSettings);
+    showNotification(
+      e.target.checked
+        ? "Day-based profiles enabled"
+        : "Day-based profiles disabled",
+    );
+  });
+}
+
+// Day profile select handlers
+document.querySelectorAll(".day-profile-select").forEach((select) => {
+  select.addEventListener("change", async (e) => {
+    const day = e.target.dataset.day;
+    dayBasedProfilesSettings.mapping[day] = e.target.value;
+    await window.electronAPI.setDayBasedProfiles(dayBasedProfilesSettings);
+  });
+});
+
+// Import/Export Handlers
+if (exportSettingsBtn) {
+  exportSettingsBtn.addEventListener("click", async () => {
+    try {
+      exportSettingsBtn.disabled = true;
+      exportSettingsBtn.innerHTML = `<span class="icon icon-sm">${icons.loader}</span> Exporting...`;
+
+      const result = await window.electronAPI.exportSettings();
+
+      if (result.success) {
+        showNotification("Settings exported successfully");
+      } else if (!result.canceled) {
+        showNotification(result.error || "Export failed", "error");
+      }
+    } catch (error) {
+      showNotification("Export failed", "error");
+    } finally {
+      exportSettingsBtn.disabled = false;
+      exportSettingsBtn.innerHTML = `<span class="icon icon-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></span> Export Settings`;
+    }
+  });
+}
+
+if (importSettingsBtn) {
+  importSettingsBtn.addEventListener("click", async () => {
+    try {
+      importSettingsBtn.disabled = true;
+      importSettingsBtn.innerHTML = `<span class="icon icon-sm">${icons.loader}</span> Importing...`;
+
+      const result = await window.electronAPI.importSettings();
+
+      if (result.success) {
+        showNotification("Settings imported successfully. Reloading...");
+        // Reload the UI
+        setTimeout(async () => {
+          currentApps = await window.electronAPI.getApps();
+          currentProfiles = await window.electronAPI.getProfiles();
+          activeProfileId = await window.electronAPI.getActiveProfile();
+          scheduleSettings = await window.electronAPI.getScheduledLaunch();
+          dayBasedProfilesSettings =
+            await window.electronAPI.getDayBasedProfiles();
+
+          renderAppsList(currentApps);
+          renderProfilesList(currentProfiles, activeProfileId);
+          updateScheduleUI();
+          updateDayBasedProfilesUI();
+        }, 500);
+      } else if (!result.canceled) {
+        showNotification(result.error || "Import failed", "error");
+      }
+    } catch (error) {
+      showNotification("Import failed", "error");
+    } finally {
+      importSettingsBtn.disabled = false;
+      importSettingsBtn.innerHTML = `<span class="icon icon-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg></span> Import Settings`;
+    }
+  });
+}
+
+// Collapsible Section Toggles
+document
+  .querySelectorAll(".setting-section.collapsible .section-toggle")
+  .forEach((toggle) => {
+    toggle.addEventListener("click", () => {
+      const section = toggle.closest(".setting-section");
+      section.classList.toggle("collapsed");
+    });
+  });
 
 // Initialize on page load
 document.addEventListener("DOMContentLoaded", init);

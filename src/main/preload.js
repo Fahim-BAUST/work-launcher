@@ -109,6 +109,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getAppVersion: () => ipcRenderer.invoke("get-app-version"),
   downloadUpdate: () => ipcRenderer.invoke("download-update"),
   installUpdate: () => ipcRenderer.invoke("install-update"),
+  getReleaseNotes: (version) =>
+    ipcRenderer.invoke("get-release-notes", version),
+  getChangelog: () => ipcRenderer.invoke("get-changelog"),
   onUpdateProgress: (callback) =>
     ipcRenderer.on("update-download-progress", (event, percent) =>
       callback(percent),
@@ -121,4 +124,34 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("update-downloaded", (event, info) => callback(info)),
   onUpdateError: (callback) =>
     ipcRenderer.on("update-error", (event, message) => callback(message)),
+
+  // URL Support
+  addUrl: (name, url, category) =>
+    ipcRenderer.invoke("add-url", { name, url, category }),
+  openUrl: (url) => ipcRenderer.invoke("open-url", url),
+
+  // Scheduled Launches
+  getScheduledLaunch: () => ipcRenderer.invoke("get-scheduled-launch"),
+  setScheduledLaunch: (settings) =>
+    ipcRenderer.invoke("set-scheduled-launch", settings),
+
+  // Day-Based Profiles
+  getDayBasedProfiles: () => ipcRenderer.invoke("get-day-based-profiles"),
+  setDayBasedProfiles: (settings) =>
+    ipcRenderer.invoke("set-day-based-profiles", settings),
+
+  // Import/Export
+  exportSettings: () => ipcRenderer.invoke("export-settings"),
+  importSettings: () => ipcRenderer.invoke("import-settings"),
+
+  // App Icons
+  getAppIcon: (exePath) => ipcRenderer.invoke("get-app-icon", exePath),
+
+  // App Categories
+  getAppCategory: (appKey) => ipcRenderer.invoke("get-app-category", appKey),
+  setAppCategory: (appKey, category) =>
+    ipcRenderer.invoke("set-app-category", { appKey, category }),
+
+  // Launch single app
+  launchSingleApp: (appKey) => ipcRenderer.invoke("launch-single-app", appKey),
 });

@@ -7,10 +7,13 @@ const {
   Menu,
   nativeImage,
   globalShortcut,
+  shell,
 } = require("electron");
 const path = require("path");
+const fs = require("fs");
 const { autoUpdater } = require("electron-updater");
 const {
+  launchApp,
   launchMultipleApps,
   launchHubstaff,
   getHubstaffOrganizations,
@@ -127,6 +130,25 @@ const store = new Store({
     shortcutEnabled: true,
     notes: [],
     activeNoteId: null,
+    // Scheduled launches
+    scheduledLaunch: {
+      enabled: false,
+      time: "09:00",
+      days: [1, 2, 3, 4, 5], // Monday to Friday
+    },
+    // Day-based profiles
+    dayBasedProfiles: {
+      enabled: false,
+      mapping: {
+        0: "default", // Sunday
+        1: "default", // Monday
+        2: "default", // Tuesday
+        3: "default", // Wednesday
+        4: "default", // Thursday
+        5: "default", // Friday
+        6: "default", // Saturday
+      },
+    },
   },
 });
 
@@ -310,24 +332,25 @@ function createTray() {
 }
 
 /**
- * Update tray menu with current profiles
+ * Update tray menu with current profiles and quick app launchers
  */
 function updateTrayMenu() {
   const profiles = store.get("profiles");
   const activeProfile = store.get("activeProfile");
+  const apps = store.get("apps");
 
   const profileMenuItems = Object.entries(profiles).map(([id, profile]) => ({
     label: `${id === activeProfile ? "✓ " : "   "}${profile.name}`,
     click: async () => {
       store.set("activeProfile", id);
       // Load the profile's app settings
-      const apps = store.get("apps");
-      for (const [appKey, appConfig] of Object.entries(apps)) {
+      const currentApps = store.get("apps");
+      for (const [appKey, appConfig] of Object.entries(currentApps)) {
         if (profile.apps[appKey] !== undefined) {
           appConfig.enabled = profile.apps[appKey];
         }
       }
-      store.set("apps", apps);
+      store.set("apps", currentApps);
       updateTrayMenu();
       // Notify renderer if window is open
       if (mainWindow) {
@@ -336,23 +359,72 @@ function updateTrayMenu() {
     },
   }));
 
+  // Build quick launch menu items for enabled apps
+  const enabledApps = Object.entries(apps)
+    .filter(([key, config]) => config.enabled && key !== "hubstaffCli")
+    .slice(0, 10); // Limit to 10 to keep menu manageable
+
+  const quickLaunchItems = enabledApps.map(([key, config]) => ({
+    label: config.customName || getAppDisplayName(key),
+    click: async () => {
+      try {
+        if (config.isUrl) {
+          await shell.openExternal(config.path);
+        } else {
+          await launchApp(config.path, config.args || []);
+        }
+      } catch (error) {
+        console.error(`Failed to launch ${key}:`, error);
+      }
+    },
+  }));
+
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: "🚀 Launch Work Apps",
+      label: "🚀 Launch All Apps",
       click: async () => {
-        const apps = store.get("apps");
+        const allApps = store.get("apps");
         const delay = store.get("launchDelay", 1000);
-        if (apps.hubstaff && apps.hubstaff.enabled) {
-          const hubstaffCliPath = findExecutable(DEFAULT_APP_PATHS.hubstaffCli);
-          if (hubstaffCliPath) {
-            await launchHubstaff(apps.hubstaff.path, hubstaffCliPath);
-            delete apps.hubstaff;
+
+        // Launch URLs first
+        for (const [key, config] of Object.entries(allApps)) {
+          if (config.enabled && config.isUrl) {
+            try {
+              await shell.openExternal(config.path);
+            } catch (error) {
+              console.error(`Failed to open URL ${config.path}:`, error);
+            }
           }
         }
-        await launchMultipleApps(apps, delay);
+
+        if (allApps.hubstaff && allApps.hubstaff.enabled) {
+          const hubstaffCliPath = findExecutable(DEFAULT_APP_PATHS.hubstaffCli);
+          if (hubstaffCliPath) {
+            await launchHubstaff(allApps.hubstaff.path, hubstaffCliPath);
+            delete allApps.hubstaff;
+          }
+        }
+
+        // Launch non-URL apps
+        const appsToLaunch = {};
+        for (const [key, config] of Object.entries(allApps)) {
+          if (!config.isUrl) {
+            appsToLaunch[key] = config;
+          }
+        }
+        await launchMultipleApps(appsToLaunch, delay);
       },
     },
     { type: "separator" },
+    ...(quickLaunchItems.length > 0
+      ? [
+          {
+            label: "⚡ Quick Launch",
+            submenu: quickLaunchItems,
+          },
+          { type: "separator" },
+        ]
+      : []),
     {
       label: "📋 Profiles",
       submenu: profileMenuItems,
@@ -528,6 +600,12 @@ function setupIpcHandlers() {
   ipcMain.handle("launch-apps-now", async () => {
     const apps = store.get("apps");
     const appOrder = store.get("appOrder", []);
+    const delay = store.get("launchDelay", 1000);
+
+    const results = {
+      success: [],
+      failed: [],
+    };
 
     // Handle Hubstaff specially
     let hubstaffResult = null;
@@ -559,8 +637,43 @@ function setupIpcHandlers() {
       }
     }
 
-    const delay = store.get("launchDelay", 1000);
-    const results = await launchMultipleApps(orderedApps, delay);
+    // Launch URLs first with shell.openExternal
+    for (const [appName, config] of Object.entries(orderedApps)) {
+      if (config.enabled && config.isUrl) {
+        try {
+          console.log(`Opening URL: ${config.path}`);
+          await shell.openExternal(config.path);
+          results.success.push({
+            name: appName,
+            path: config.path,
+            isUrl: true,
+          });
+          // Small delay between URL opens
+          if (delay > 0) {
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          }
+        } catch (error) {
+          console.error(`Failed to open URL ${config.path}:`, error);
+          results.failed.push({
+            name: appName,
+            path: config.path,
+            error: error.message,
+          });
+        }
+      }
+    }
+
+    // Filter out URLs and launch only executable apps
+    const executableApps = {};
+    for (const [key, config] of Object.entries(orderedApps)) {
+      if (!config.isUrl) {
+        executableApps[key] = config;
+      }
+    }
+
+    const appResults = await launchMultipleApps(executableApps, delay);
+    results.success.push(...appResults.success);
+    results.failed.push(...appResults.failed);
 
     if (hubstaffResult) {
       if (hubstaffResult.appLaunched) {
@@ -878,15 +991,15 @@ function setupIpcHandlers() {
     if (!app.isPackaged) {
       return {
         updateAvailable: false,
-        message: "Updates only work in production",
+        message: "Updates only work in packaged app",
       };
     }
     try {
-      const result = await autoUpdater.checkForUpdates();
-      return {
-        updateAvailable: !!result?.updateInfo,
-        version: result?.updateInfo?.version,
-      };
+      // checkForUpdates() triggers the autoUpdater events
+      // which will send IPC messages to the renderer
+      await autoUpdater.checkForUpdates();
+      // Return empty - let the events handle the UI update
+      return { checking: true };
     } catch (error) {
       return { updateAvailable: false, error: error.message };
     }
@@ -906,6 +1019,470 @@ function setupIpcHandlers() {
   ipcMain.handle("install-update", () => {
     autoUpdater.quitAndInstall(false, true);
   });
+
+  // Get release notes from GitHub
+  ipcMain.handle("get-release-notes", async (event, version) => {
+    try {
+      const https = require("https");
+      const fs = require("fs");
+      const path = require("path");
+      const url = version
+        ? `https://api.github.com/repos/Fahim-BAUST/work-launcher/releases/tags/v${version}`
+        : "https://api.github.com/repos/Fahim-BAUST/work-launcher/releases/latest";
+
+      // Try to read local CHANGELOG.md as fallback
+      const getLocalChangelog = (targetVersion) => {
+        try {
+          const changelogPaths = [
+            path.join(__dirname, "../../CHANGELOG.md"), // Development mode
+            path.join(process.resourcesPath, "CHANGELOG.md"), // Packaged app
+            path.join(app.getAppPath(), "CHANGELOG.md"), // Alternative location
+          ];
+
+          let content = "";
+          for (const changelogPath of changelogPaths) {
+            if (fs.existsSync(changelogPath)) {
+              content = fs.readFileSync(changelogPath, "utf8");
+              break;
+            }
+          }
+
+          if (content && targetVersion) {
+            // Extract the section for this version
+            const regex = new RegExp(
+              `## \\[${targetVersion}\\][^]*?(?=## \\[|$)`,
+              "i",
+            );
+            const match = content.match(regex);
+            if (match) {
+              return match[0].trim();
+            }
+          }
+          return null;
+        } catch (e) {
+          console.error("Error reading changelog:", e);
+          return null;
+        }
+      };
+
+      return new Promise((resolve, reject) => {
+        const options = {
+          headers: {
+            "User-Agent": "Work-Launcher-App",
+            Accept: "application/vnd.github.v3+json",
+          },
+        };
+
+        https
+          .get(url, options, (res) => {
+            let data = "";
+            res.on("data", (chunk) => (data += chunk));
+            res.on("end", () => {
+              try {
+                const release = JSON.parse(data);
+                const releaseVersion =
+                  release.tag_name?.replace("v", "") || version;
+                let body = release.body;
+
+                // If no body from GitHub, try local changelog
+                if (!body || body.trim() === "") {
+                  body =
+                    getLocalChangelog(releaseVersion) ||
+                    "No release notes available.";
+                }
+
+                resolve({
+                  version: releaseVersion,
+                  name: release.name || `Version ${releaseVersion}`,
+                  body: body,
+                  publishedAt: release.published_at,
+                  htmlUrl: release.html_url,
+                });
+              } catch (e) {
+                const localNotes = getLocalChangelog(version);
+                resolve({
+                  version,
+                  body: localNotes || "Unable to load release notes.",
+                });
+              }
+            });
+          })
+          .on("error", (err) => {
+            const localNotes = getLocalChangelog(version);
+            resolve({
+              version,
+              body: localNotes || "Unable to load release notes.",
+            });
+          });
+      });
+    } catch (error) {
+      return { version, body: "Unable to load release notes." };
+    }
+  });
+
+  // Get all release notes (changelog)
+  ipcMain.handle("get-changelog", async () => {
+    try {
+      const https = require("https");
+      const url =
+        "https://api.github.com/repos/Fahim-BAUST/work-launcher/releases";
+
+      return new Promise((resolve, reject) => {
+        const options = {
+          headers: {
+            "User-Agent": "Work-Launcher-App",
+            Accept: "application/vnd.github.v3+json",
+          },
+        };
+
+        https
+          .get(url, options, (res) => {
+            let data = "";
+            res.on("data", (chunk) => (data += chunk));
+            res.on("end", () => {
+              try {
+                const releases = JSON.parse(data);
+                const changelog = releases.slice(0, 10).map((release) => ({
+                  version: release.tag_name?.replace("v", ""),
+                  name: release.name,
+                  body: release.body || "No release notes.",
+                  publishedAt: release.published_at,
+                  htmlUrl: release.html_url,
+                }));
+                resolve(changelog);
+              } catch (e) {
+                resolve([]);
+              }
+            });
+          })
+          .on("error", (err) => {
+            resolve([]);
+          });
+      });
+    } catch (error) {
+      return [];
+    }
+  });
+
+  // ============================================
+  // URL Support
+  // ============================================
+  ipcMain.handle("add-url", (event, { name, url, category }) => {
+    const apps = store.get("apps");
+    const urlKey = `url_${Date.now()}`;
+    apps[urlKey] = {
+      path: url,
+      enabled: true,
+      isUrl: true,
+      customName: name,
+      category: category || "url",
+    };
+    store.set("apps", apps);
+    return apps;
+  });
+
+  ipcMain.handle("open-url", (event, url) => {
+    shell.openExternal(url);
+  });
+
+  // ============================================
+  // Scheduled Launches
+  // ============================================
+  ipcMain.handle("get-scheduled-launch", () => {
+    return store.get("scheduledLaunch");
+  });
+
+  ipcMain.handle("set-scheduled-launch", (event, settings) => {
+    store.set("scheduledLaunch", settings);
+    setupScheduledLaunch();
+    return settings;
+  });
+
+  // ============================================
+  // Day-Based Profiles
+  // ============================================
+  ipcMain.handle("get-day-based-profiles", () => {
+    return store.get("dayBasedProfiles");
+  });
+
+  ipcMain.handle("set-day-based-profiles", (event, settings) => {
+    store.set("dayBasedProfiles", settings);
+    return settings;
+  });
+
+  // ============================================
+  // Import/Export Settings
+  // ============================================
+  ipcMain.handle("export-settings", async () => {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: "Export Settings",
+      defaultPath: "work-launcher-settings.json",
+      filters: [{ name: "JSON Files", extensions: ["json"] }],
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true };
+    }
+
+    try {
+      const settings = {
+        version: app.getVersion(),
+        exportDate: new Date().toISOString(),
+        apps: store.get("apps"),
+        appOrder: store.get("appOrder"),
+        profiles: store.get("profiles"),
+        activeProfile: store.get("activeProfile"),
+        scheduledLaunch: store.get("scheduledLaunch"),
+        dayBasedProfiles: store.get("dayBasedProfiles"),
+        launchDelay: store.get("launchDelay"),
+        theme: store.get("theme"),
+        notes: store.get("notes"),
+      };
+
+      fs.writeFileSync(result.filePath, JSON.stringify(settings, null, 2));
+      return { success: true, path: result.filePath };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle("import-settings", async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: "Import Settings",
+      filters: [{ name: "JSON Files", extensions: ["json"] }],
+      properties: ["openFile"],
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: false, canceled: true };
+    }
+
+    try {
+      const content = fs.readFileSync(result.filePaths[0], "utf8");
+      const settings = JSON.parse(content);
+
+      // Validate it's a Work Launcher settings file
+      if (!settings.apps || !settings.profiles) {
+        return { success: false, error: "Invalid settings file" };
+      }
+
+      // Import the settings
+      if (settings.apps) store.set("apps", settings.apps);
+      if (settings.appOrder) store.set("appOrder", settings.appOrder);
+      if (settings.profiles) store.set("profiles", settings.profiles);
+      if (settings.activeProfile)
+        store.set("activeProfile", settings.activeProfile);
+      if (settings.scheduledLaunch)
+        store.set("scheduledLaunch", settings.scheduledLaunch);
+      if (settings.dayBasedProfiles)
+        store.set("dayBasedProfiles", settings.dayBasedProfiles);
+      if (settings.launchDelay) store.set("launchDelay", settings.launchDelay);
+      if (settings.theme) store.set("theme", settings.theme);
+      if (settings.notes) store.set("notes", settings.notes);
+
+      // Rebuild scheduled launch
+      setupScheduledLaunch();
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // ============================================
+  // App Icon Extraction
+  // ============================================
+  ipcMain.handle("get-app-icon", async (event, exePath) => {
+    try {
+      const icon = await app.getFileIcon(exePath, { size: "normal" });
+      return icon.toDataURL();
+    } catch (error) {
+      return null;
+    }
+  });
+
+  // ============================================
+  // App Categories
+  // ============================================
+  ipcMain.handle("get-app-category", (event, appKey) => {
+    const apps = store.get("apps");
+    if (apps[appKey] && apps[appKey].category) {
+      return apps[appKey].category;
+    }
+    return getDefaultCategory(appKey);
+  });
+
+  ipcMain.handle("set-app-category", (event, { appKey, category }) => {
+    const apps = store.get("apps");
+    if (apps[appKey]) {
+      apps[appKey].category = category;
+      store.set("apps", apps);
+    }
+    return apps;
+  });
+
+  // Launch single app from tray
+  ipcMain.handle("launch-single-app", async (event, appKey) => {
+    const apps = store.get("apps");
+    const appConfig = apps[appKey];
+
+    if (!appConfig) {
+      return { success: false, error: "App not found" };
+    }
+
+    try {
+      if (appConfig.isUrl) {
+        await shell.openExternal(appConfig.path);
+      } else {
+        await launchApp(appConfig.path, appConfig.args || []);
+      }
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+}
+
+// App category detection
+const categoryMapping = {
+  // Communication
+  slack: "communication",
+  teams: "communication",
+  discord: "communication",
+  zoom: "communication",
+  skype: "communication",
+  // Development
+  visualStudio: "development",
+  vscode: "development",
+  pycharm: "development",
+  intellij: "development",
+  webstorm: "development",
+  sublime: "development",
+  atom: "development",
+  notepad: "development",
+  git: "development",
+  postman: "development",
+  docker: "development",
+  // Browsers
+  chrome: "browser",
+  firefox: "browser",
+  edge: "browser",
+  opera: "browser",
+  brave: "browser",
+  // Productivity
+  notion: "productivity",
+  obsidian: "productivity",
+  todoist: "productivity",
+  trello: "productivity",
+  asana: "productivity",
+  figma: "productivity",
+  // Database
+  mongodb: "database",
+  dbeaver: "database",
+  tableplus: "database",
+  mysql: "database",
+  pgadmin: "database",
+  // Media
+  spotify: "media",
+  vlc: "media",
+  // Time tracking
+  hubstaff: "productivity",
+};
+
+function getDefaultCategory(appKey) {
+  const key = appKey.toLowerCase().replace(/[^a-z]/g, "");
+  for (const [pattern, category] of Object.entries(categoryMapping)) {
+    if (key.includes(pattern.toLowerCase())) {
+      return category;
+    }
+  }
+  return "other";
+}
+
+// Scheduled launch timer
+let scheduledLaunchTimer = null;
+
+function setupScheduledLaunch() {
+  // Clear existing timer
+  if (scheduledLaunchTimer) {
+    clearInterval(scheduledLaunchTimer);
+    scheduledLaunchTimer = null;
+  }
+
+  const settings = store.get("scheduledLaunch");
+  if (!settings || !settings.enabled) {
+    return;
+  }
+
+  // Check every minute
+  scheduledLaunchTimer = setInterval(() => {
+    const now = new Date();
+    const currentDay = now.getDay();
+    const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+    if (settings.days.includes(currentDay) && currentTime === settings.time) {
+      console.log("Scheduled launch triggered");
+      launchAppsFromSchedule();
+    }
+  }, 60000); // Check every minute
+
+  console.log("Scheduled launch configured:", settings);
+}
+
+async function launchAppsFromSchedule() {
+  // Check if day-based profiles is enabled
+  const dayBasedSettings = store.get("dayBasedProfiles");
+  if (dayBasedSettings && dayBasedSettings.enabled) {
+    const today = new Date().getDay();
+    const profileId = dayBasedSettings.mapping[today];
+    if (profileId && profileId !== store.get("activeProfile")) {
+      // Switch to the day's profile
+      store.set("activeProfile", profileId);
+      const profiles = store.get("profiles");
+      if (profiles[profileId]) {
+        const apps = store.get("apps");
+        for (const [appKey, appConfig] of Object.entries(apps)) {
+          if (profiles[profileId].apps[appKey] !== undefined) {
+            appConfig.enabled = profiles[profileId].apps[appKey];
+          }
+        }
+        store.set("apps", apps);
+      }
+    }
+  }
+
+  const apps = store.get("apps");
+  const delay = store.get("launchDelay", 1000);
+
+  // Handle URLs separately
+  for (const [key, config] of Object.entries(apps)) {
+    if (config.enabled && config.isUrl) {
+      try {
+        await shell.openExternal(config.path);
+      } catch (error) {
+        console.error(`Failed to open URL ${config.path}:`, error);
+      }
+    }
+  }
+
+  // Handle Hubstaff specially
+  if (apps.hubstaff && apps.hubstaff.enabled) {
+    const hubstaffCliPath = findExecutable(DEFAULT_APP_PATHS.hubstaffCli);
+    if (hubstaffCliPath) {
+      await launchHubstaff(apps.hubstaff.path, hubstaffCliPath);
+      delete apps.hubstaff;
+    }
+  }
+
+  // Launch remaining apps (excluding URLs)
+  const appsToLaunch = {};
+  for (const [key, config] of Object.entries(apps)) {
+    if (!config.isUrl) {
+      appsToLaunch[key] = config;
+    }
+  }
+
+  await launchMultipleApps(appsToLaunch, delay);
 }
 
 /**
@@ -985,6 +1562,9 @@ app.whenReady().then(async () => {
 
   // Register global keyboard shortcut
   registerGlobalShortcut();
+
+  // Setup scheduled launch timer
+  setupScheduledLaunch();
 
   if (app.isPackaged) {
     // Migrate from old Startup folder method to Task Scheduler (for existing users)
