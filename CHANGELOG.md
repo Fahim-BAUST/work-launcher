@@ -2,6 +2,13 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
+## [1.0.19] - 2026-02-08
+
+### Improved
+- "What's New" release notes now display with better formatting
+- Changelog categories (Added, Fixed, Changed) shown as colored badges
+- Cleaner list display without redundant version headers
+
 ## [1.0.18] - 2026-02-08
 
 ### Changed

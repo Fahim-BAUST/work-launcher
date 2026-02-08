@@ -964,6 +964,72 @@ kbd {
   font-weight: 600;
 }
 
+/* Changelog category badges */
+.changelog-category {
+  display: inline-block;
+  padding: 4px 12px;
+  margin: 12px 0 8px 0;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.changelog-added {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.changelog-fixed {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.changelog-changed {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.changelog-removed {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.changelog-improved {
+  background: rgba(139, 92, 246, 0.15);
+  color: #8b5cf6;
+}
+
+.changelog-security {
+  background: rgba(236, 72, 153, 0.15);
+  color: #ec4899;
+}
+
+/* Changelog list */
+.changelog-list {
+  margin: 8px 0 16px 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.changelog-item {
+  position: relative;
+  padding: 6px 0 6px 20px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.changelog-item::before {
+  content: "•";
+  position: absolute;
+  left: 6px;
+  color: var(--primary-color);
+  font-weight: bold;
+}
+
 /* Scrollbar for release notes */
 .release-notes-container::-webkit-scrollbar {
   width: 6px;

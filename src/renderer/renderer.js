@@ -2323,10 +2323,41 @@ saveBtn.addEventListener("click", async () => {
 function markdownToHtml(markdown) {
   if (!markdown) return "<p>No release notes available.</p>";
 
+  // Remove the version header line (e.g., "## [1.0.18] - 2026-02-08")
+  let cleaned = markdown.replace(/^## \[[\d.]+\].*$/gm, "").trim();
+
+  // If empty after removing header, return message
+  if (!cleaned) return "<p>No release notes available.</p>";
+
   return (
-    markdown
-      // Headers
-      .replace(/^### (.+)$/gm, '<h5 class="release-notes-h5">$1</h5>')
+    cleaned
+      // Convert section headers (### Added, ### Fixed, etc.) to styled badges
+      .replace(
+        /^### (Added)$/gm,
+        '<div class="changelog-category changelog-added">✨ Added</div>',
+      )
+      .replace(
+        /^### (Fixed)$/gm,
+        '<div class="changelog-category changelog-fixed">🔧 Fixed</div>',
+      )
+      .replace(
+        /^### (Changed)$/gm,
+        '<div class="changelog-category changelog-changed">🔄 Changed</div>',
+      )
+      .replace(
+        /^### (Removed)$/gm,
+        '<div class="changelog-category changelog-removed">🗑️ Removed</div>',
+      )
+      .replace(
+        /^### (Improved)$/gm,
+        '<div class="changelog-category changelog-improved">⚡ Improved</div>',
+      )
+      .replace(
+        /^### (Security)$/gm,
+        '<div class="changelog-category changelog-security">🔒 Security</div>',
+      )
+      .replace(/^### (.+)$/gm, '<div class="changelog-category">$1</div>')
+      // Other headers
       .replace(/^## (.+)$/gm, '<h4 class="release-notes-h4">$1</h4>')
       .replace(/^# (.+)$/gm, '<h3 class="release-notes-h3">$1</h3>')
       // Bold
@@ -2335,21 +2366,17 @@ function markdownToHtml(markdown) {
       .replace(/\*(.+?)\*/g, "<em>$1</em>")
       // Code
       .replace(/`(.+?)`/g, "<code>$1</code>")
-      // Unordered lists
-      .replace(/^- (.+)$/gm, "<li>$1</li>")
+      // Unordered lists - convert to styled list items
+      .replace(/^- (.+)$/gm, '<li class="changelog-item">$1</li>')
       // Wrap consecutive <li> tags in <ul>
-      .replace(/(<li>.*<\/li>\n?)+/g, "<ul>$&</ul>")
-      // Line breaks
-      .replace(/\n\n/g, "</p><p>")
-      .replace(/\n/g, "<br>")
-      // Wrap in paragraphs
-      .replace(/^(?!<[hul])/gm, "<p>")
-      .replace(/(?<![>])$/gm, "</p>")
-      // Clean up empty paragraphs
-      .replace(/<p><\/p>/g, "")
-      .replace(/<p><br><\/p>/g, "")
-      .replace(/<p>(<[hul])/g, "$1")
-      .replace(/(<\/[hul][l>])<\/p>/g, "$1")
+      .replace(
+        /(<li class="changelog-item">.*<\/li>\n?)+/g,
+        '<ul class="changelog-list">$&</ul>',
+      )
+      // Clean up extra whitespace between elements
+      .replace(/\n{2,}/g, "\n")
+      // Remove empty lines that become <br>
+      .replace(/^\s*$/gm, "")
   );
 }
 

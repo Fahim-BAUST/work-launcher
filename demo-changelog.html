@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>What's New - Demo</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1d23;
+      color: #e4e4e7;
+      padding: 20px;
+      margin: 0;
+    }
+    
+    .container {
+      max-width: 400px;
+      margin: 0 auto;
+      background: #252830;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    
+    .title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #e4e4e7;
+    }
+    
+    .title::before {
+      content: "✨";
+    }
+    
+    /* Changelog category badges */
+    .changelog-category {
+      display: inline-block;
+      padding: 4px 12px;
+      margin: 12px 0 8px 0;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: #3a3f4b;
+      color: #e4e4e7;
+    }
+
+    .changelog-added {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+    }
+
+    .changelog-fixed {
+      background: rgba(59, 130, 246, 0.15);
+      color: #3b82f6;
+    }
+
+    .changelog-changed {
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+    }
+
+    .changelog-removed {
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+    }
+
+    .changelog-improved {
+      background: rgba(139, 92, 246, 0.15);
+      color: #8b5cf6;
+    }
+
+    .changelog-security {
+      background: rgba(236, 72, 153, 0.15);
+      color: #ec4899;
+    }
+
+    /* Changelog list */
+    .changelog-list {
+      margin: 8px 0 16px 0;
+      padding-left: 0;
+      list-style: none;
+    }
+
+    .changelog-item {
+      position: relative;
+      padding: 6px 0 6px 20px;
+      margin: 0;
+      color: #a1a1aa;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+
+    .changelog-item::before {
+      content: "•";
+      position: absolute;
+      left: 6px;
+      color: #10b981;
+      font-weight: bold;
+    }
+    
+    code {
+      background: #3a3f4b;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.85em;
+    }
+    
+    .label {
+      text-align: center;
+      color: #71717a;
+      font-size: 0.75rem;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid #3a3f4b;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h4 class="title">What's New</h4>
+    
+    <div class="changelog-category changelog-improved">⚡ Improved</div>
+    <ul class="changelog-list">
+      <li class="changelog-item">"What's New" release notes now display with better formatting</li>
+      <li class="changelog-item">Changelog categories shown as colored badges</li>
+      <li class="changelog-item">Cleaner list display without redundant version headers</li>
+    </ul>
+    
+    <div class="changelog-category changelog-fixed">🔧 Fixed</div>
+    <ul class="changelog-list">
+      <li class="changelog-item">Insert Link button in Notes now works properly</li>
+      <li class="changelog-item">Code blocks can now be removed with delete button</li>
+      <li class="changelog-item">URL launching now works correctly</li>
+    </ul>
+    
+    <div class="changelog-category changelog-added">✨ Added</div>
+    <ul class="changelog-list">
+      <li class="changelog-item">Comprehensive README.md documentation</li>
+      <li class="changelog-item">AGENT.md for AI coding assistant</li>
+    </ul>
+    
+    <div class="changelog-category changelog-changed">🔄 Changed</div>
+    <ul class="changelog-list">
+      <li class="changelog-item">App list height now auto-adjusts (min 100px, max 500px)</li>
+    </ul>
+    
+    <div class="changelog-category changelog-removed">🗑️ Removed</div>
+    <ul class="changelog-list">
+      <li class="changelog-item">Edge, Notion, Discord from default apps</li>
+      <li class="changelog-item">Font size dropdown from notes toolbar</li>
+    </ul>
+    
+    <div class="label">Demo Preview - This is how changelog will appear in the app</div>
+  </div>
+</body>
+</html>
