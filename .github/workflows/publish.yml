@@ -65,14 +65,21 @@ jobs:
 
             - name: Update release with changelog
               if: steps.check-release.outputs.RELEASE_EXISTS == 'false'
+              continue-on-error: true
               shell: pwsh
               run: |
-                  $ErrorActionPreference = "Continue"
+                  $ErrorActionPreference = "SilentlyContinue"
                   $version = "${{ steps.package-version.outputs.VERSION }}"
-                  $tag = "v$version"
                   
                   # Wait for the release to be fully created by electron-builder
-                  Start-Sleep -Seconds 10
+                  Start-Sleep -Seconds 15
+                  
+                  # List recent releases to debug
+                  echo "Recent releases:"
+                  gh release list --limit 5
+                  
+                  # Try both tag formats (v1.0.18 and 1.0.18)
+                  $tags = @("v$version", "$version")
                   
                   # Read changelog and extract this version's notes
                   $content = Get-Content CHANGELOG.md -Raw
@@ -84,29 +91,34 @@ jobs:
                     $tempFile = New-TemporaryFile
                     $notes | Out-File -FilePath $tempFile.FullName -Encoding utf8
                     
-                    # Retry up to 3 times in case release is still being created
-                    $retries = 0
                     $success = $false
-                    while ($retries -lt 3 -and -not $success) {
-                      $result = gh release edit $tag --notes-file $tempFile.FullName 2>&1
-                      if ($LASTEXITCODE -eq 0) {
-                        $success = $true
-                        echo "Updated release $tag with changelog"
-                      } else {
-                        $retries++
-                        echo "Retry $retries/3 - waiting for release to be available..."
-                        Start-Sleep -Seconds 10
+                    foreach ($tag in $tags) {
+                      if (-not $success) {
+                        echo "Trying tag: $tag"
+                        # Retry up to 3 times
+                        for ($i = 0; $i -lt 3; $i++) {
+                          gh release edit $tag --notes-file $tempFile.FullName 2>$null
+                          if ($LASTEXITCODE -eq 0) {
+                            $success = $true
+                            echo "Updated release $tag with changelog"
+                            break
+                          }
+                          Start-Sleep -Seconds 10
+                        }
                       }
                     }
                     
-                    Remove-Item $tempFile.FullName
+                    Remove-Item $tempFile.FullName -ErrorAction SilentlyContinue
                     
                     if (-not $success) {
-                      echo "Warning: Could not update release notes after 3 attempts"
+                      echo "Note: Could not update release notes automatically. You can add them manually on GitHub."
                     }
                   } else {
                     echo "No changelog found for version $version"
                   }
+                  
+                  # Always exit successfully - release notes are nice-to-have
+                  exit 0
               env:
                   GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
