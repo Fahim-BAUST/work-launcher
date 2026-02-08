@@ -6,8 +6,7 @@ All notable changes to Work Launcher will be documented in this file.
 
 ### Changed
 - Automated release
-
-
+  
 ### Fixed
 - Insert Link button in Notes now works properly (replaced prompt with modal dialog)
 
