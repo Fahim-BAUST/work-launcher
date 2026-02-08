@@ -2,7 +2,11 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
-## [1.0.19] - 2026-02-08
+## [1.0.20] - 2026-02-08
+
+### Changed
+- Automated release
+
 
 ### Changed
 - Automated release
