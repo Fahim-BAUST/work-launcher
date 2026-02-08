@@ -1591,44 +1591,104 @@ highlightColorPicker.addEventListener("input", (e) => {
   notesDebounceTimer = setTimeout(saveCurrentNote, 500);
 });
 
-// Insert link handler
-document
-  .getElementById("insertLinkBtn")
-  .addEventListener("click", async (e) => {
-    e.preventDefault();
+// Insert link modal elements
+const insertLinkModal = document.getElementById("insertLinkModal");
+const insertLinkText = document.getElementById("insertLinkText");
+const insertLinkUrl = document.getElementById("insertLinkUrl");
+const confirmInsertLinkBtn = document.getElementById("confirmInsertLinkBtn");
+const cancelInsertLinkBtn = document.getElementById("cancelInsertLinkBtn");
+const closeInsertLinkModalBtn = document.getElementById(
+  "closeInsertLinkModalBtn",
+);
+
+let savedSelection = null;
+
+// Insert link handler - open modal
+document.getElementById("insertLinkBtn").addEventListener("click", (e) => {
+  e.preventDefault();
+
+  // Save current selection
+  const selection = window.getSelection();
+  if (selection.rangeCount > 0) {
+    savedSelection = selection.getRangeAt(0).cloneRange();
+    insertLinkText.value = selection.toString() || "";
+  } else {
+    savedSelection = null;
+    insertLinkText.value = "";
+  }
+
+  insertLinkUrl.value = "https://";
+  insertLinkModal.classList.remove("hidden");
+  insertLinkUrl.focus();
+});
+
+// Confirm insert link
+confirmInsertLinkBtn.addEventListener("click", () => {
+  const url = insertLinkUrl.value.trim();
+  const text = insertLinkText.value.trim() || url;
+
+  if (url && url !== "https://") {
+    noteEditor.focus();
+
+    // Restore selection if we had one
+    if (savedSelection) {
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(savedSelection);
+    }
 
     const selection = window.getSelection();
-    const selectedText = selection.toString() || "";
+    if (selection.toString()) {
+      // If text is selected, wrap it in a link
+      document.execCommand("createLink", false, url);
+    } else {
+      // Insert a new link at cursor
+      const link = document.createElement("a");
+      link.href = url;
+      link.textContent = text;
+      link.target = "_blank";
 
-    // Simple prompt for URL (could be replaced with a modal)
-    const url = prompt("Enter URL:", "https://");
-    if (url && url !== "https://") {
-      if (selectedText) {
-        document.execCommand("createLink", false, url);
-      } else {
-        const link = document.createElement("a");
-        link.href = url;
-        link.textContent = url;
-        link.target = "_blank";
-
-        if (selection.rangeCount > 0) {
-          const range = selection.getRangeAt(0);
-          range.insertNode(link);
-          range.setStartAfter(link);
-          selection.removeAllRanges();
-          selection.addRange(range);
-        }
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(link);
+        range.setStartAfter(link);
+        selection.removeAllRanges();
+        selection.addRange(range);
       }
-
-      noteEditor.focus();
-
-      // Trigger save
-      notesSaveStatus.textContent = "Saving...";
-      notesSaveStatus.classList.add("saving");
-      clearTimeout(notesDebounceTimer);
-      notesDebounceTimer = setTimeout(saveCurrentNote, 500);
     }
-  });
+
+    // Trigger save
+    notesSaveStatus.textContent = "Saving...";
+    notesSaveStatus.classList.add("saving");
+    clearTimeout(notesDebounceTimer);
+    notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+  }
+
+  insertLinkModal.classList.add("hidden");
+  savedSelection = null;
+});
+
+// Cancel/close insert link modal
+cancelInsertLinkBtn.addEventListener("click", () => {
+  insertLinkModal.classList.add("hidden");
+  savedSelection = null;
+  noteEditor.focus();
+});
+
+closeInsertLinkModalBtn.addEventListener("click", () => {
+  insertLinkModal.classList.add("hidden");
+  savedSelection = null;
+  noteEditor.focus();
+});
+
+// Handle Enter key in URL input
+insertLinkUrl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    confirmInsertLinkBtn.click();
+  }
+});
 
 // Insert horizontal rule handler
 document.getElementById("insertHrBtn").addEventListener("click", (e) => {

@@ -1357,6 +1357,44 @@
       </div>
     </div>
 
+    <!-- Insert Link Modal (for Notes) -->
+    <div id="insertLinkModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>🔗 Insert Link</h3>
+          <button id="closeInsertLinkModalBtn" class="btn-close">
+            &times;
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="insertLinkText">Link Text</label>
+            <input
+              type="text"
+              id="insertLinkText"
+              placeholder="Display text (optional)"
+            />
+          </div>
+          <div class="form-group">
+            <label for="insertLinkUrl">URL</label>
+            <input
+              type="url"
+              id="insertLinkUrl"
+              placeholder="https://example.com"
+            />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="cancelInsertLinkBtn" class="btn btn-secondary">
+            Cancel
+          </button>
+          <button id="confirmInsertLinkBtn" class="btn btn-success">
+            Insert Link
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Profile Modal -->
     <div id="profileModal" class="modal hidden">
       <div class="modal-content">
