@@ -1341,7 +1341,7 @@ function setupIpcHandlers() {
 
       // Get existing notes
       const existingNotes = store.get("notes") || [];
-      
+
       // Generate new IDs for imported notes to avoid conflicts
       const importedNotes = importData.notes.map((note) => ({
         ...note,
@@ -1360,34 +1360,38 @@ function setupIpcHandlers() {
     }
   });
 
-  ipcMain.handle("export-note-to-pdf", async (event, { noteId, noteTitle, noteContent }) => {
-    const sanitizedTitle = (noteTitle || "note").replace(/[<>:"/\\|?*]/g, "_").substring(0, 50);
-    
-    const result = await dialog.showSaveDialog(mainWindow, {
-      title: "Save Note as PDF",
-      defaultPath: `${sanitizedTitle}.pdf`,
-      filters: [{ name: "PDF Files", extensions: ["pdf"] }],
-    });
+  ipcMain.handle(
+    "export-note-to-pdf",
+    async (event, { noteId, noteTitle, noteContent }) => {
+      const sanitizedTitle = (noteTitle || "note")
+        .replace(/[<>:"/\\|?*]/g, "_")
+        .substring(0, 50);
 
-    if (result.canceled || !result.filePath) {
-      return { success: false, canceled: true };
-    }
-
-    try {
-      // Create a hidden window to render the note
-      const { BrowserWindow } = require("electron");
-      const pdfWindow = new BrowserWindow({
-        width: 800,
-        height: 600,
-        show: false,
-        webPreferences: {
-          nodeIntegration: false,
-          contextIsolation: true,
-        },
+      const result = await dialog.showSaveDialog(mainWindow, {
+        title: "Save Note as PDF",
+        defaultPath: `${sanitizedTitle}.pdf`,
+        filters: [{ name: "PDF Files", extensions: ["pdf"] }],
       });
 
-      // Create HTML content for the PDF
-      const htmlContent = `
+      if (result.canceled || !result.filePath) {
+        return { success: false, canceled: true };
+      }
+
+      try {
+        // Create a hidden window to render the note
+        const { BrowserWindow } = require("electron");
+        const pdfWindow = new BrowserWindow({
+          width: 800,
+          height: 600,
+          show: false,
+          webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+          },
+        });
+
+        // Create HTML content for the PDF
+        const htmlContent = `
         <!DOCTYPE html>
         <html>
         <head>
@@ -1432,24 +1436,27 @@ function setupIpcHandlers() {
         </html>
       `;
 
-      await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
-      
-      const pdfData = await pdfWindow.webContents.printToPDF({
-        marginType: 0,
-        printBackground: true,
-        printSelectionOnly: false,
-        landscape: false,
-        pageSize: "A4",
-      });
+        await pdfWindow.loadURL(
+          `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`,
+        );
 
-      fs.writeFileSync(result.filePath, pdfData);
-      pdfWindow.close();
+        const pdfData = await pdfWindow.webContents.printToPDF({
+          marginType: 0,
+          printBackground: true,
+          printSelectionOnly: false,
+          landscape: false,
+          pageSize: "A4",
+        });
 
-      return { success: true, path: result.filePath };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  });
+        fs.writeFileSync(result.filePath, pdfData);
+        pdfWindow.close();
+
+        return { success: true, path: result.filePath };
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    },
+  );
 
   // ============================================
   // App Icon Extraction

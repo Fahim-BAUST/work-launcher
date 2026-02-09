@@ -2,8 +2,17 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
-## [1.0.22] - 2026-02-09
+## [1.0.23] - 2026-02-09
 
+### Removed
+- Startup Settings section has been removed (Run on Windows Startup, Ask Before Launching, Minimize to Tray)
+
+### Improved
+- Reorganized settings UI for better workflow
+- Launch Settings, Schedule & Automation, and Backup & Restore sections now appear at the bottom before action buttons
+- Cleaner and more intuitive settings layout focusing on application management
+
+## [1.0.22] - 2026-02-09
 
 ### Fixed
 - Image resize functionality in Notes now works correctly after closing and reopening the app

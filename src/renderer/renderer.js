@@ -1,8 +1,5 @@
 // DOM Elements
 const splashScreen = document.getElementById("splashScreen");
-const autoLaunchToggle = document.getElementById("autoLaunchToggle");
-const startupDialogToggle = document.getElementById("startupDialogToggle");
-const minimizeToTrayToggle = document.getElementById("minimizeToTrayToggle");
 const detectAppsBtn = document.getElementById("detectAppsBtn");
 const appsList = document.getElementById("appsList");
 const noAppsMessage = document.getElementById("noAppsMessage");
@@ -578,7 +575,10 @@ function renderAppsList(apps) {
       const appKey = e.currentTarget.dataset.app;
       const appName =
         currentApps[appKey]?.customName || appDisplayNames[appKey] || appKey;
-      const confirmed = await showConfirm(`Remove "${appName}" from the list?`, "Remove App");
+      const confirmed = await showConfirm(
+        `Remove "${appName}" from the list?`,
+        "Remove App",
+      );
       if (confirmed) {
         currentApps = await window.electronAPI.removeApp(appKey);
         renderAppsList(currentApps);
@@ -721,7 +721,10 @@ function renderProfilesList(profiles, activeId) {
       const profileId = e.currentTarget.dataset.profileId;
       if (!profileId || !currentProfiles[profileId]) return;
       const profileName = currentProfiles[profileId].name;
-      const confirmed = await showConfirm(`Delete profile "${profileName}"?`, "Delete Profile");
+      const confirmed = await showConfirm(
+        `Delete profile "${profileName}"?`,
+        "Delete Profile",
+      );
       if (confirmed) {
         currentProfiles = await window.electronAPI.deleteProfile(profileId);
         if (activeProfileId === profileId) {
@@ -742,14 +745,14 @@ function renderProfilesList(profiles, activeId) {
 async function switchProfile(profileId) {
   const profileName = currentProfiles[profileId]?.name || profileId;
   const previousProfileId = activeProfileId;
-  
+
   // Update UI immediately for responsiveness
   activeProfileId = profileId;
   renderProfilesList(currentProfiles, activeProfileId);
-  
+
   // Save previous profile (can be done in background)
   window.electronAPI.saveProfileApps(previousProfileId);
-  
+
   // Switch to new profile and get apps
   await window.electronAPI.setActiveProfile(profileId);
   currentApps = await window.electronAPI.getApps();
@@ -808,18 +811,6 @@ async function init() {
     // Load current apps configuration
     currentApps = await window.electronAPI.getApps();
     renderAppsList(currentApps);
-
-    // Load auto-launch status
-    const autoLaunchEnabled = await window.electronAPI.getAutoLaunchStatus();
-    autoLaunchToggle.checked = autoLaunchEnabled;
-
-    // Load startup dialog setting
-    const showStartupDialog = await window.electronAPI.getShowStartupDialog();
-    startupDialogToggle.checked = showStartupDialog;
-
-    // Load minimize to tray setting
-    const minimizeToTray = await window.electronAPI.getMinimizeToTray();
-    minimizeToTrayToggle.checked = minimizeToTray;
 
     // Load launch delay setting
     const launchDelay = await window.electronAPI.getLaunchDelay();
@@ -895,18 +886,6 @@ async function init() {
 
 // Event Listeners
 
-// Auto-launch toggle
-autoLaunchToggle.addEventListener("change", async (e) => {
-  try {
-    await window.electronAPI.toggleAutoLaunch(e.target.checked);
-    showNotification(e.target.checked ? "Startup enabled" : "Startup disabled");
-  } catch (error) {
-    console.error("Failed to toggle auto-launch:", error);
-    showNotification("Failed to change startup setting", true);
-    e.target.checked = !e.target.checked; // Revert
-  }
-});
-
 // Detect apps button
 detectAppsBtn.addEventListener("click", async () => {
   try {
@@ -960,38 +939,6 @@ launchNowBtn.addEventListener("click", async () => {
   } finally {
     launchNowBtn.disabled = false;
     launchNowBtn.innerHTML = `<span class="icon icon-sm">${icons.rocket}</span> Launch All Apps Now`;
-  }
-});
-
-// Startup dialog toggle
-startupDialogToggle.addEventListener("change", async (e) => {
-  try {
-    await window.electronAPI.toggleShowStartupDialog(e.target.checked);
-    showNotification(
-      e.target.checked
-        ? "Startup dialog enabled"
-        : "Startup dialog disabled - Apps will launch automatically",
-    );
-  } catch (error) {
-    console.error("Failed to toggle startup dialog:", error);
-    showNotification("Failed to change setting", true);
-    e.target.checked = !e.target.checked;
-  }
-});
-
-// Minimize to tray toggle
-minimizeToTrayToggle.addEventListener("change", async (e) => {
-  try {
-    await window.electronAPI.toggleMinimizeToTray(e.target.checked);
-    showNotification(
-      e.target.checked
-        ? "Minimize to tray enabled"
-        : "App will close completely when window closed",
-    );
-  } catch (error) {
-    console.error("Failed to toggle minimize to tray:", error);
-    showNotification("Failed to change setting", true);
-    e.target.checked = !e.target.checked;
   }
 });
 
@@ -1982,25 +1929,25 @@ function wrapImagesWithResizeHandles() {
   const images = noteEditor.querySelectorAll("img");
   images.forEach((img) => {
     const parent = img.parentElement;
-    
+
     // Check if already properly wrapped with handle
     if (parent && parent.classList.contains("img-resize-wrapper")) {
       // Verify the resize handle exists
       let handle = parent.querySelector(".img-resize-handle");
-      
+
       if (!handle) {
         // Wrapper exists but no handle - create one
         handle = document.createElement("span");
         handle.className = "img-resize-handle";
         parent.appendChild(handle);
       }
-      
+
       // Always reattach event listener (in case it was lost on reload)
       // Remove old listener first by cloning and replacing
       const newHandle = handle.cloneNode(true);
       handle.parentNode.replaceChild(newHandle, handle);
       newHandle.addEventListener("mousedown", startResize);
-      
+
       img.classList.add("wrapped");
       return;
     }

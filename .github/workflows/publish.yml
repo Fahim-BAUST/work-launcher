@@ -1,152 +1,152 @@
 name: Publish Release
 
 on:
-    # Manual trigger to publish
-    workflow_dispatch:
+  # Manual trigger to publish
+  workflow_dispatch:
 
-    # Auto-trigger when release PR is merged
-    pull_request:
-        types:
-            - closed
-        branches:
-            - main
+  # Auto-trigger when release PR is merged
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
 
 jobs:
-    publish:
-        # Only run if PR was merged (not just closed) OR manual trigger
-        if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'release'))
-        runs-on: windows-latest
+  publish:
+    # Only run if PR was merged (not just closed) OR manual trigger
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'release'))
+    runs-on: windows-latest
 
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-            - name: Setup Node.js
-              uses: actions/setup-node@v4
-              with:
-                  node-version: "20"
-                  cache: "npm"
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
 
-            - name: Install dependencies
-              run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-            - name: Get version from package.json
-              id: package-version
-              run: |
-                  $version = (Get-Content package.json | ConvertFrom-Json).version
-                  echo "VERSION=$version" >> $env:GITHUB_OUTPUT
-                  echo "Building and releasing version: $version"
+      - name: Get version from package.json
+        id: package-version
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          echo "Building and releasing version: $version"
 
-            - name: Check if release exists
-              id: check-release
-              run: |
-                  $version = "${{ steps.package-version.outputs.VERSION }}"
-                  $tag = "v$version"
-                  try {
-                    $releases = gh release list --limit 100
-                    if ($releases -match $tag) {
-                      echo "RELEASE_EXISTS=true" >> $env:GITHUB_OUTPUT
-                      echo "Release $tag already exists, skipping publish"
-                    } else {
-                      echo "RELEASE_EXISTS=false" >> $env:GITHUB_OUTPUT
-                      echo "Release $tag does not exist, will publish"
-                    }
-                  } catch {
-                    echo "RELEASE_EXISTS=false" >> $env:GITHUB_OUTPUT
-                  }
-              env:
-                  GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      - name: Check if release exists
+        id: check-release
+        run: |
+          $version = "${{ steps.package-version.outputs.VERSION }}"
+          $tag = "v$version"
+          try {
+            $releases = gh release list --limit 100
+            if ($releases -match $tag) {
+              echo "RELEASE_EXISTS=true" >> $env:GITHUB_OUTPUT
+              echo "Release $tag already exists, skipping publish"
+            } else {
+              echo "RELEASE_EXISTS=false" >> $env:GITHUB_OUTPUT
+              echo "Release $tag does not exist, will publish"
+            }
+          } catch {
+            echo "RELEASE_EXISTS=false" >> $env:GITHUB_OUTPUT
+          }
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-            - name: Build and Publish
-              if: steps.check-release.outputs.RELEASE_EXISTS == 'false'
-              run: npm run publish
-              env:
-                  GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      - name: Build and Publish
+        if: steps.check-release.outputs.RELEASE_EXISTS == 'false'
+        run: npm run publish
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-            - name: Update release with changelog
-              if: steps.check-release.outputs.RELEASE_EXISTS == 'false'
-              continue-on-error: true
-              shell: pwsh
-              run: |
-                  $ErrorActionPreference = "Continue"
-                  $version = "${{ steps.package-version.outputs.VERSION }}"
-                  
-                  # Wait longer for the release to be fully created by electron-builder
-                  echo "Waiting 30 seconds for release to be created..."
-                  Start-Sleep -Seconds 30
-                  
-                  # List recent releases to debug
-                  echo "Recent releases:"
-                  gh release list --limit 10
-                  
-                  # Try both tag formats (v1.0.18 and 1.0.18)
-                  $tags = @("v$version", "$version")
-                  
-                  # Read changelog and extract this version's notes
-                  $content = Get-Content CHANGELOG.md -Raw
-                  $pattern = "(?s)## \[$version\].*?(?=## \[|$)"
-                  $match = [regex]::Match($content, $pattern)
-                  
-                  if ($match.Success) {
-                    # Remove the "### Changed - Automated release" section
-                    $notes = $match.Value.Trim()
-                    $notes = $notes -replace "### Changed\s*-\s*Automated release\s*", ""
-                    $notes = $notes.Trim()
-                    
-                    $tempFile = New-TemporaryFile
-                    $notes | Out-File -FilePath $tempFile.FullName -Encoding utf8
-                    
-                    $success = $false
-                    foreach ($tag in $tags) {
-                      if (-not $success) {
-                        echo "Trying tag: $tag"
-                        # Try to view the release first to see if it exists
-                        $releaseInfo = gh release view $tag 2>&1
-                        if ($LASTEXITCODE -eq 0) {
-                          echo "Release $tag found! Updating notes..."
-                          # Try to edit with --draft=false to ensure it's published
-                          gh release edit $tag --notes-file $tempFile.FullName --draft=false 2>&1
-                          if ($LASTEXITCODE -eq 0) {
-                            $success = $true
-                            echo "✓ Successfully updated release $tag with changelog"
-                            break
-                          } else {
-                            echo "Failed to update release $tag"
-                          }
-                        } else {
-                          echo "Release $tag not found yet"
-                        }
-                        
-                        # Wait before trying next tag
-                        if (-not $success) {
-                          Start-Sleep -Seconds 10
-                        }
-                      }
-                    }
-                    
-                    Remove-Item $tempFile.FullName -ErrorAction SilentlyContinue
-                    
-                    if (-not $success) {
-                      echo ""
-                      echo "⚠ Note: Could not update release notes automatically."
-                      echo "Please add them manually from CHANGELOG.md to the release on GitHub."
-                    }
+      - name: Update release with changelog
+        if: steps.check-release.outputs.RELEASE_EXISTS == 'false'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Continue"
+          $version = "${{ steps.package-version.outputs.VERSION }}"
+
+          # Wait longer for the release to be fully created by electron-builder
+          echo "Waiting 30 seconds for release to be created..."
+          Start-Sleep -Seconds 30
+
+          # List recent releases to debug
+          echo "Recent releases:"
+          gh release list --limit 10
+
+          # Try both tag formats (v1.0.18 and 1.0.18)
+          $tags = @("v$version", "$version")
+
+          # Read changelog and extract this version's notes
+          $content = Get-Content CHANGELOG.md -Raw
+          $pattern = "(?s)## \[$version\].*?(?=## \[|$)"
+          $match = [regex]::Match($content, $pattern)
+
+          if ($match.Success) {
+            # Remove the "### Changed - Automated release" section
+            $notes = $match.Value.Trim()
+            $notes = $notes -replace "### Changed\s*-\s*Automated release\s*", ""
+            $notes = $notes.Trim()
+            
+            $tempFile = New-TemporaryFile
+            $notes | Out-File -FilePath $tempFile.FullName -Encoding utf8
+            
+            $success = $false
+            foreach ($tag in $tags) {
+              if (-not $success) {
+                echo "Trying tag: $tag"
+                # Try to view the release first to see if it exists
+                $releaseInfo = gh release view $tag 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                  echo "Release $tag found! Updating notes..."
+                  # Try to edit with --draft=false to ensure it's published
+                  gh release edit $tag --notes-file $tempFile.FullName --draft=false 2>&1
+                  if ($LASTEXITCODE -eq 0) {
+                    $success = $true
+                    echo "✓ Successfully updated release $tag with changelog"
+                    break
                   } else {
-                    echo "No changelog found for version $version in CHANGELOG.md"
+                    echo "Failed to update release $tag"
                   }
-                  
-                  # Always exit successfully - release notes are nice-to-have
-                  exit 0
-              env:
-                  GH_TOKEN: ${{ secrets.GH_TOKEN }}
+                } else {
+                  echo "Release $tag not found yet"
+                }
+                
+                # Wait before trying next tag
+                if (-not $success) {
+                  Start-Sleep -Seconds 10
+                }
+              }
+            }
+            
+            Remove-Item $tempFile.FullName -ErrorAction SilentlyContinue
+            
+            if (-not $success) {
+              echo ""
+              echo "⚠ Note: Could not update release notes automatically."
+              echo "Please add them manually from CHANGELOG.md to the release on GitHub."
+            }
+          } else {
+            echo "No changelog found for version $version in CHANGELOG.md"
+          }
 
-            - name: Release Summary
-              if: steps.check-release.outputs.RELEASE_EXISTS == 'false'
-              run: |
-                  echo "Successfully released v${{ steps.package-version.outputs.VERSION }}"
-                  echo "Release notes added from CHANGELOG.md"
+          # Always exit successfully - release notes are nice-to-have
+          exit 0
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-            - name: Skip Summary
-              if: steps.check-release.outputs.RELEASE_EXISTS == 'true'
-              run: |
-                  echo "⏭️ Skipped - Release v${{ steps.package-version.outputs.VERSION }} already exists"
+      - name: Release Summary
+        if: steps.check-release.outputs.RELEASE_EXISTS == 'false'
+        run: |
+          echo "Successfully released v${{ steps.package-version.outputs.VERSION }}"
+          echo "Release notes added from CHANGELOG.md"
+
+      - name: Skip Summary
+        if: steps.check-release.outputs.RELEASE_EXISTS == 'true'
+        run: |
+          echo "⏭️ Skipped - Release v${{ steps.package-version.outputs.VERSION }} already exists"
