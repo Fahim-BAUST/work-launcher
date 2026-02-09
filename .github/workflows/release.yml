@@ -91,9 +91,6 @@ jobs:
                   echo "" >> $TEMP_FILE
                   echo "## [$NEW_VERSION] - $DATE" >> $TEMP_FILE
                   echo "" >> $TEMP_FILE
-                  echo "### Changed" >> $TEMP_FILE
-                  echo "- Automated release" >> $TEMP_FILE
-                  echo "" >> $TEMP_FILE
 
                   # Append existing changelog (skip the header lines)
                   tail -n +6 CHANGELOG.md >> $TEMP_FILE

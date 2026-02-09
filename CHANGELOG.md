@@ -33,10 +33,6 @@ All notable changes to Work Launcher will be documented in this file.
 
 ## [1.0.19] - 2026-02-08
 
-### Changed
-- Automated release
-
-
 ### Improved
 - "What's New" release notes now display with better formatting
 - Changelog categories (Added, Fixed, Changed) shown as colored badges
@@ -44,17 +40,10 @@ All notable changes to Work Launcher will be documented in this file.
 
 ## [1.0.18] - 2026-02-08
 
-### Changed
-- Automated release
-  
 ### Fixed
 - Insert Link button in Notes now works properly (replaced prompt with modal dialog)
 
 ## [1.0.17] - 2026-02-07
-
-### Changed
-- Automated release
-
 
 ### Added
 - Comprehensive README.md with full documentation
