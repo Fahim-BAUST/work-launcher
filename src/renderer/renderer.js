@@ -1034,6 +1034,9 @@ let notesSearchQuery = "";
 const notesSearchInput = document.getElementById("notesSearchInput");
 const deleteSelectedNotes = document.getElementById("deleteSelectedNotes");
 const selectedNotesCount = document.getElementById("selectedNotesCount");
+const exportNotesBtn = document.getElementById("exportNotesBtn");
+const importNotesBtn = document.getElementById("importNotesBtn");
+const downloadNotesPdfBtn = document.getElementById("downloadNotesPdfBtn");
 
 // Render the notes list
 function renderNotesList() {
@@ -1375,6 +1378,87 @@ deleteSelectedNotes.addEventListener("click", async () => {
 
   renderNotesList();
   showNotification(`${count} note${count > 1 ? "s" : ""} deleted`);
+});
+
+// Export notes
+exportNotesBtn.addEventListener("click", async () => {
+  try {
+    exportNotesBtn.disabled = true;
+    exportNotesBtn.innerHTML = `<span class="icon icon-sm">${icons.loader}</span> Exporting...`;
+
+    const result = await window.electronAPI.exportNotes();
+
+    if (result.success) {
+      showNotification(`Exported ${result.count} note${result.count !== 1 ? "s" : ""} successfully`);
+    } else if (!result.canceled) {
+      showNotification(result.error || "Export failed", "error");
+    }
+  } catch (error) {
+    showNotification("Export failed: " + error.message, "error");
+  } finally {
+    exportNotesBtn.disabled = false;
+    exportNotesBtn.innerHTML = `<span class="icon icon-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></span> Export`;
+  }
+});
+
+// Import notes
+importNotesBtn.addEventListener("click", async () => {
+  try {
+    importNotesBtn.disabled = true;
+    importNotesBtn.innerHTML = `<span class="icon icon-sm">${icons.loader}</span> Importing...`;
+
+    const result = await window.electronAPI.importNotes();
+
+    if (result.success) {
+      // Reload notes
+      currentNotes = await window.electronAPI.getNotes();
+      renderNotesList();
+      showNotification(`Imported ${result.count} note${result.count !== 1 ? "s" : ""} successfully`);
+    } else if (!result.canceled) {
+      showNotification(result.error || "Import failed", "error");
+    }
+  } catch (error) {
+    showNotification("Import failed: " + error.message, "error");
+  } finally {
+    importNotesBtn.disabled = false;
+    importNotesBtn.innerHTML = `<span class="icon icon-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg></span> Import`;
+  }
+});
+
+// Download current note as PDF
+downloadNotesPdfBtn.addEventListener("click", async () => {
+  if (!activeNoteId) {
+    showNotification("Please select a note to download", "warning");
+    return;
+  }
+
+  const note = currentNotes.find((n) => n.id === activeNoteId);
+  if (!note) {
+    showNotification("Note not found", "error");
+    return;
+  }
+
+  try {
+    downloadNotesPdfBtn.disabled = true;
+    downloadNotesPdfBtn.innerHTML = `<span class="icon icon-sm">${icons.loader}</span> Saving...`;
+
+    const result = await window.electronAPI.exportNoteToPdf(
+      note.id,
+      note.title || "Untitled Note",
+      note.content || ""
+    );
+
+    if (result.success) {
+      showNotification("PDF saved successfully");
+    } else if (!result.canceled) {
+      showNotification(result.error || "PDF export failed", "error");
+    }
+  } catch (error) {
+    showNotification("PDF export failed: " + error.message, "error");
+  } finally {
+    downloadNotesPdfBtn.disabled = false;
+    downloadNotesPdfBtn.innerHTML = `<span class="icon icon-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" x2="12" y1="18" y2="12"/><line x1="9" x2="15" y1="15" y2="15"/></svg></span> PDF`;
+  }
 });
 
 // Note title input - auto-save with debounce

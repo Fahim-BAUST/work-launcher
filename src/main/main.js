@@ -1290,6 +1290,168 @@ function setupIpcHandlers() {
   });
 
   // ============================================
+  // Notes Import/Export
+  // ============================================
+  ipcMain.handle("export-notes", async () => {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: "Export Notes",
+      defaultPath: "work-launcher-notes.json",
+      filters: [{ name: "JSON Files", extensions: ["json"] }],
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true };
+    }
+
+    try {
+      const notes = store.get("notes") || [];
+      const exportData = {
+        version: app.getVersion(),
+        exportDate: new Date().toISOString(),
+        notesCount: notes.length,
+        notes: notes,
+      };
+
+      fs.writeFileSync(result.filePath, JSON.stringify(exportData, null, 2));
+      return { success: true, path: result.filePath, count: notes.length };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle("import-notes", async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: "Import Notes",
+      filters: [{ name: "JSON Files", extensions: ["json"] }],
+      properties: ["openFile"],
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: false, canceled: true };
+    }
+
+    try {
+      const content = fs.readFileSync(result.filePaths[0], "utf8");
+      const importData = JSON.parse(content);
+
+      // Validate it's a notes file
+      if (!importData.notes || !Array.isArray(importData.notes)) {
+        return { success: false, error: "Invalid notes file" };
+      }
+
+      // Get existing notes
+      const existingNotes = store.get("notes") || [];
+      
+      // Generate new IDs for imported notes to avoid conflicts
+      const importedNotes = importData.notes.map((note) => ({
+        ...note,
+        id: Date.now() + Math.random().toString(36).substr(2, 9),
+        createdAt: note.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }));
+
+      // Merge notes
+      const mergedNotes = [...existingNotes, ...importedNotes];
+      store.set("notes", mergedNotes);
+
+      return { success: true, count: importedNotes.length };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle("export-note-to-pdf", async (event, { noteId, noteTitle, noteContent }) => {
+    const sanitizedTitle = (noteTitle || "note").replace(/[<>:"/\\|?*]/g, "_").substring(0, 50);
+    
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: "Save Note as PDF",
+      defaultPath: `${sanitizedTitle}.pdf`,
+      filters: [{ name: "PDF Files", extensions: ["pdf"] }],
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true };
+    }
+
+    try {
+      // Create a hidden window to render the note
+      const { BrowserWindow } = require("electron");
+      const pdfWindow = new BrowserWindow({
+        width: 800,
+        height: 600,
+        show: false,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+        },
+      });
+
+      // Create HTML content for the PDF
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              padding: 40px;
+              line-height: 1.6;
+              color: #333;
+            }
+            h1 {
+              color: #1a1a1a;
+              border-bottom: 2px solid #10b981;
+              padding-bottom: 10px;
+              margin-bottom: 20px;
+            }
+            .content {
+              font-size: 14px;
+            }
+            pre, code {
+              background: #f4f4f4;
+              padding: 10px;
+              border-radius: 4px;
+              font-family: 'Consolas', monospace;
+              overflow-x: auto;
+            }
+            .meta {
+              color: #666;
+              font-size: 12px;
+              margin-top: 30px;
+              padding-top: 10px;
+              border-top: 1px solid #ddd;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>${noteTitle || "Untitled Note"}</h1>
+          <div class="content">${noteContent || ""}</div>
+          <div class="meta">Exported from Work Launcher on ${new Date().toLocaleString()}</div>
+        </body>
+        </html>
+      `;
+
+      await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
+      
+      const pdfData = await pdfWindow.webContents.printToPDF({
+        marginType: 0,
+        printBackground: true,
+        printSelectionOnly: false,
+        landscape: false,
+        pageSize: "A4",
+      });
+
+      fs.writeFileSync(result.filePath, pdfData);
+      pdfWindow.close();
+
+      return { success: true, path: result.filePath };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // ============================================
   // App Icon Extraction
   // ============================================
   ipcMain.handle("get-app-icon", async (event, exePath) => {

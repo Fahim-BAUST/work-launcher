@@ -144,6 +144,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
   exportSettings: () => ipcRenderer.invoke("export-settings"),
   importSettings: () => ipcRenderer.invoke("import-settings"),
 
+  // Notes Import/Export
+  exportNotes: () => ipcRenderer.invoke("export-notes"),
+  importNotes: () => ipcRenderer.invoke("import-notes"),
+  exportNoteToPdf: (noteId, noteTitle, noteContent) =>
+    ipcRenderer.invoke("export-note-to-pdf", { noteId, noteTitle, noteContent }),
+
   // App Icons
   getAppIcon: (exePath) => ipcRenderer.invoke("get-app-icon", exePath),
 
