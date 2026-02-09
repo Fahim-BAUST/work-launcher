@@ -4,6 +4,10 @@ All notable changes to Work Launcher will be documented in this file.
 
 ## [1.0.21] - 2026-02-09
 
+### Changed
+- Automated release
+
+
 ### Fixed
 - Profile edit button now works correctly
 - Profile delete button now works correctly
