@@ -1979,17 +1979,33 @@ document.addEventListener("keydown", (e) => {
 
 // Wrap images with resize handles
 function wrapImagesWithResizeHandles() {
-  const images = noteEditor.querySelectorAll("img:not(.wrapped)");
+  const images = noteEditor.querySelectorAll("img");
   images.forEach((img) => {
-    // Skip if already wrapped
-    if (
-      img.parentElement &&
-      img.parentElement.classList.contains("img-resize-wrapper")
-    ) {
+    const parent = img.parentElement;
+    
+    // Check if already properly wrapped with handle
+    if (parent && parent.classList.contains("img-resize-wrapper")) {
+      // Verify the resize handle exists
+      let handle = parent.querySelector(".img-resize-handle");
+      
+      if (!handle) {
+        // Wrapper exists but no handle - create one
+        handle = document.createElement("span");
+        handle.className = "img-resize-handle";
+        parent.appendChild(handle);
+      }
+      
+      // Always reattach event listener (in case it was lost on reload)
+      // Remove old listener first by cloning and replacing
+      const newHandle = handle.cloneNode(true);
+      handle.parentNode.replaceChild(newHandle, handle);
+      newHandle.addEventListener("mousedown", startResize);
+      
+      img.classList.add("wrapped");
       return;
     }
 
-    // Create wrapper
+    // Not wrapped - create wrapper and handle
     const wrapper = document.createElement("span");
     wrapper.className = "img-resize-wrapper";
     wrapper.contentEditable = "false";
