@@ -4,6 +4,7 @@ All notable changes to Work Launcher will be documented in this file.
 
 ## [1.0.22] - 2026-02-09
 
+
 ### Fixed
 - Image resize functionality in Notes now works correctly after closing and reopening the app
 - Event listeners are properly reattached to image resize handles when notes are reloaded
