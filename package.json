@@ -28,7 +28,8 @@
       "provider": "github",
       "owner": "Fahim-BAUST",
       "repo": "work-launcher",
-      "releaseType": "release"
+      "releaseType": "release",
+      "publishAutoUpdate": true
     },
     "win": {
       "target": [

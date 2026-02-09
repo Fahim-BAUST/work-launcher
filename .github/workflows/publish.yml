@@ -68,15 +68,16 @@ jobs:
               continue-on-error: true
               shell: pwsh
               run: |
-                  $ErrorActionPreference = "SilentlyContinue"
+                  $ErrorActionPreference = "Continue"
                   $version = "${{ steps.package-version.outputs.VERSION }}"
                   
-                  # Wait for the release to be fully created by electron-builder
-                  Start-Sleep -Seconds 15
+                  # Wait longer for the release to be fully created by electron-builder
+                  echo "Waiting 30 seconds for release to be created..."
+                  Start-Sleep -Seconds 30
                   
                   # List recent releases to debug
                   echo "Recent releases:"
-                  gh release list --limit 5
+                  gh release list --limit 10
                   
                   # Try both tag formats (v1.0.18 and 1.0.18)
                   $tags = @("v$version", "$version")
@@ -87,7 +88,11 @@ jobs:
                   $match = [regex]::Match($content, $pattern)
                   
                   if ($match.Success) {
+                    # Remove the "### Changed - Automated release" section
                     $notes = $match.Value.Trim()
+                    $notes = $notes -replace "### Changed\s*-\s*Automated release\s*", ""
+                    $notes = $notes.Trim()
+                    
                     $tempFile = New-TemporaryFile
                     $notes | Out-File -FilePath $tempFile.FullName -Encoding utf8
                     
@@ -95,14 +100,25 @@ jobs:
                     foreach ($tag in $tags) {
                       if (-not $success) {
                         echo "Trying tag: $tag"
-                        # Retry up to 3 times
-                        for ($i = 0; $i -lt 3; $i++) {
-                          gh release edit $tag --notes-file $tempFile.FullName 2>$null
+                        # Try to view the release first to see if it exists
+                        $releaseInfo = gh release view $tag 2>&1
+                        if ($LASTEXITCODE -eq 0) {
+                          echo "Release $tag found! Updating notes..."
+                          # Try to edit with --draft=false to ensure it's published
+                          gh release edit $tag --notes-file $tempFile.FullName --draft=false 2>&1
                           if ($LASTEXITCODE -eq 0) {
                             $success = $true
-                            echo "Updated release $tag with changelog"
+                            echo "✓ Successfully updated release $tag with changelog"
                             break
+                          } else {
+                            echo "Failed to update release $tag"
                           }
+                        } else {
+                          echo "Release $tag not found yet"
+                        }
+                        
+                        # Wait before trying next tag
+                        if (-not $success) {
                           Start-Sleep -Seconds 10
                         }
                       }
@@ -111,10 +127,12 @@ jobs:
                     Remove-Item $tempFile.FullName -ErrorAction SilentlyContinue
                     
                     if (-not $success) {
-                      echo "Note: Could not update release notes automatically. You can add them manually on GitHub."
+                      echo ""
+                      echo "⚠ Note: Could not update release notes automatically."
+                      echo "Please add them manually from CHANGELOG.md to the release on GitHub."
                     }
                   } else {
-                    echo "No changelog found for version $version"
+                    echo "No changelog found for version $version in CHANGELOG.md"
                   }
                   
                   # Always exit successfully - release notes are nice-to-have
