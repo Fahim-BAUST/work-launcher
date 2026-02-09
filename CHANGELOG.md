@@ -4,6 +4,7 @@ All notable changes to Work Launcher will be documented in this file.
 
 ## [1.0.23] - 2026-02-09
 
+
 ### Removed
 - Startup Settings section has been removed (Run on Windows Startup, Ask Before Launching, Minimize to Tray)
 
