@@ -575,10 +575,11 @@ function renderAppsList(apps) {
   // Add event listeners to remove buttons
   document.querySelectorAll(".btn-remove").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
-      const appKey = e.target.dataset.app || e.currentTarget.dataset.app;
+      const appKey = e.currentTarget.dataset.app;
       const appName =
         currentApps[appKey]?.customName || appDisplayNames[appKey] || appKey;
-      if (confirm(`Remove "${appName}" from the list?`)) {
+      const confirmed = await showConfirm(`Remove "${appName}" from the list?`, "Remove App");
+      if (confirmed) {
         currentApps = await window.electronAPI.removeApp(appKey);
         renderAppsList(currentApps);
         showNotification("App removed");
@@ -706,8 +707,10 @@ function renderProfilesList(profiles, activeId) {
   document.querySelectorAll(".btn-edit-profile").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      const profileId = e.target.dataset.profileId;
-      openEditProfileModal(profileId);
+      const profileId = e.currentTarget.dataset.profileId;
+      if (profileId) {
+        openEditProfileModal(profileId);
+      }
     });
   });
 
@@ -715,9 +718,11 @@ function renderProfilesList(profiles, activeId) {
   document.querySelectorAll(".btn-delete-profile").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
       e.stopPropagation();
-      const profileId = e.target.dataset.profileId;
+      const profileId = e.currentTarget.dataset.profileId;
+      if (!profileId || !currentProfiles[profileId]) return;
       const profileName = currentProfiles[profileId].name;
-      if (confirm(`Delete profile "${profileName}"?`)) {
+      const confirmed = await showConfirm(`Delete profile "${profileName}"?`, "Delete Profile");
+      if (confirmed) {
         currentProfiles = await window.electronAPI.deleteProfile(profileId);
         if (activeProfileId === profileId) {
           activeProfileId = "default";
@@ -735,19 +740,22 @@ function renderProfilesList(profiles, activeId) {
  * Switch to a different profile
  */
 async function switchProfile(profileId) {
-  // Save current profile's app states first
-  await window.electronAPI.saveProfileApps(activeProfileId);
-
-  // Switch to new profile
-  await window.electronAPI.setActiveProfile(profileId);
+  const profileName = currentProfiles[profileId]?.name || profileId;
+  const previousProfileId = activeProfileId;
+  
+  // Update UI immediately for responsiveness
   activeProfileId = profileId;
-
-  // Reload apps with new profile's settings
+  renderProfilesList(currentProfiles, activeProfileId);
+  
+  // Save previous profile (can be done in background)
+  window.electronAPI.saveProfileApps(previousProfileId);
+  
+  // Switch to new profile and get apps
+  await window.electronAPI.setActiveProfile(profileId);
   currentApps = await window.electronAPI.getApps();
   renderAppsList(currentApps);
-  renderProfilesList(currentProfiles, activeProfileId);
 
-  showNotification(`Switched to "${currentProfiles[profileId].name}" profile`);
+  showNotification(`Switched to "${profileName}" profile`);
 }
 
 /**
@@ -1389,7 +1397,9 @@ exportNotesBtn.addEventListener("click", async () => {
     const result = await window.electronAPI.exportNotes();
 
     if (result.success) {
-      showNotification(`Exported ${result.count} note${result.count !== 1 ? "s" : ""} successfully`);
+      showNotification(
+        `Exported ${result.count} note${result.count !== 1 ? "s" : ""} successfully`,
+      );
     } else if (!result.canceled) {
       showNotification(result.error || "Export failed", "error");
     }
@@ -1413,7 +1423,9 @@ importNotesBtn.addEventListener("click", async () => {
       // Reload notes
       currentNotes = await window.electronAPI.getNotes();
       renderNotesList();
-      showNotification(`Imported ${result.count} note${result.count !== 1 ? "s" : ""} successfully`);
+      showNotification(
+        `Imported ${result.count} note${result.count !== 1 ? "s" : ""} successfully`,
+      );
     } else if (!result.canceled) {
       showNotification(result.error || "Import failed", "error");
     }
@@ -1445,7 +1457,7 @@ downloadNotesPdfBtn.addEventListener("click", async () => {
     const result = await window.electronAPI.exportNoteToPdf(
       note.id,
       note.title || "Untitled Note",
-      note.content || ""
+      note.content || "",
     );
 
     if (result.success) {
@@ -2295,6 +2307,7 @@ confirmAddBtn.addEventListener("click", async () => {
       // Add the app with its detected path
       // For scanned apps, mark as custom so user can delete them
       const isScanned = selectedInstalledApp.key.startsWith("scanned_");
+      const appDisplayName = selectedInstalledApp.displayName; // Save before closeModal nullifies it
       currentApps[selectedInstalledApp.key] = {
         path: selectedInstalledApp.path,
         enabled: true,
@@ -2304,9 +2317,7 @@ confirmAddBtn.addEventListener("click", async () => {
       await window.electronAPI.saveApps(currentApps);
       renderAppsList(currentApps);
       closeModal();
-      showNotification(
-        `Added "${selectedInstalledApp.displayName}" successfully!`,
-      );
+      showNotification(`Added "${appDisplayName}" successfully!`);
     } catch (error) {
       console.error("Failed to add app:", error);
       showNotification("Failed to add application", true);

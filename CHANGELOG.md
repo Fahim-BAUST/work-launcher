@@ -2,16 +2,34 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
+## [1.0.21] - 2026-02-09
+
+### Fixed
+- Profile edit button now works correctly
+- Profile delete button now works correctly
+- App removal confirmation now works correctly
+- "Failed to add application" error no longer shown when adding apps successfully
+
+### Improved
+- Profile switching is now faster with immediate UI feedback
+- Replaced native Windows dialogs with custom styled modals
+
 ## [1.0.20] - 2026-02-09
-
-### Changed
-- Automated release
-
 
 ### Added
 - Export Notes: Save all your notes to a JSON file for backup
 - Import Notes: Import notes from a previously exported JSON file
 - Download as PDF: Export the current note as a beautifully formatted PDF document
+
+### Fixed
+- Profile edit button now works correctly
+- Profile delete button now works correctly
+- App removal confirmation now works correctly
+- "Failed to add application" error no longer shown when adding apps successfully
+
+### Improved
+- Profile switching is now faster with immediate UI feedback
+- Replaced native Windows dialogs with custom styled modals
 
 ## [1.0.19] - 2026-02-08
 
