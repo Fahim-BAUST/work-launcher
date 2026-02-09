@@ -4,6 +4,10 @@ All notable changes to Work Launcher will be documented in this file.
 
 ## [1.0.20] - 2026-02-09
 
+### Changed
+- Automated release
+
+
 ### Added
 - Export Notes: Save all your notes to a JSON file for backup
 - Import Notes: Import notes from a previously exported JSON file
