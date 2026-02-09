@@ -2,11 +2,21 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
+## [1.0.22] - 2026-02-09
+
+### Fixed
+- Image resize functionality in Notes now works correctly after closing and reopening the app
+- Event listeners are properly reattached to image resize handles when notes are reloaded
+
+### Improved
+- GitHub Actions workflow now publishes releases immediately (not as drafts)
+- Better release notes automation with longer wait time and improved error handling
+- Release notes from CHANGELOG are automatically filtered and formatted
+
 ## [1.0.21] - 2026-02-09
 
 ### Changed
 - Automated release
-
 
 ### Fixed
 - Profile edit button now works correctly
