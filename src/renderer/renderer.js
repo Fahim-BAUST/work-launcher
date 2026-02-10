@@ -160,6 +160,9 @@ let dayBasedProfilesSettings = {
 // App icons cache
 const appIconsCache = {};
 
+// Chrome profiles cache
+let chromeProfilesCache = null;
+
 // App category mapping
 const categoryMapping = {
   slack: "communication",
@@ -286,6 +289,7 @@ const icons = {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg>',
   sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>',
   moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>',
+  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
 };
 
 // Custom confirm modal elements
@@ -499,6 +503,17 @@ function renderAppsList(apps) {
       extraInfo = '<span class="app-note">Timer will auto-start via CLI</span>';
     }
 
+    // Check if this is Chrome - we'll add profile selector
+    const isChrome = key === "chrome";
+    const chromeProfileHtml = isChrome
+      ? `<div class="chrome-profile-selector" data-app="${key}">
+          <span class="icon icon-sm">${icons.user}</span>
+          <select class="chrome-profile-select" data-app="${key}">
+            <option value="">Default Profile</option>
+          </select>
+        </div>`
+      : "";
+
     // Badge type
     let badgeClass = isCustomOrScanned ? "custom" : "detected";
     let badgeText = isCustomOrScanned ? "Custom" : "Detected";
@@ -526,6 +541,7 @@ function renderAppsList(apps) {
         <div class="app-name">${displayName} ${extraInfo}</div>
         <div class="app-path">${config.path}</div>
         <span class="category-tag category-${category}">${category}</span>
+        ${chromeProfileHtml}
       </div>
       <div class="app-status">
         <span class="status-badge ${badgeClass}">${badgeText}</span>
@@ -584,6 +600,60 @@ function renderAppsList(apps) {
         renderAppsList(currentApps);
         showNotification("App removed");
       }
+    });
+  });
+
+  // Load Chrome profiles for Chrome app
+  loadChromeProfiles();
+}
+
+/**
+ * Load Chrome profiles and populate the profile selector
+ */
+async function loadChromeProfiles() {
+  const chromeSelectors = document.querySelectorAll(".chrome-profile-select");
+  if (chromeSelectors.length === 0) return;
+
+  // Use cached profiles if available
+  if (!chromeProfilesCache) {
+    try {
+      chromeProfilesCache = await window.electronAPI.getChromeProfiles();
+    } catch (error) {
+      console.error("Failed to load Chrome profiles:", error);
+      chromeProfilesCache = [];
+    }
+  }
+
+  chromeSelectors.forEach((select) => {
+    const appKey = select.dataset.app;
+    const currentProfile = currentApps[appKey]?.chromeProfile || "";
+
+    // Clear existing options except the first one
+    select.innerHTML = '<option value="">Default Profile</option>';
+
+    // Add profile options
+    chromeProfilesCache.forEach((profile) => {
+      const option = document.createElement("option");
+      option.value = profile.dir;
+      option.textContent = profile.name;
+      if (profile.dir === currentProfile) {
+        option.selected = true;
+      }
+      select.appendChild(option);
+    });
+
+    // Add event listener for profile change
+    select.addEventListener("change", async (e) => {
+      const selectedProfile = e.target.value;
+      currentApps = await window.electronAPI.setChromeProfile(
+        appKey,
+        selectedProfile,
+      );
+      showNotification(
+        selectedProfile
+          ? `Chrome profile set to "${chromeProfilesCache.find((p) => p.dir === selectedProfile)?.name || selectedProfile}"`
+          : "Chrome will use default profile",
+      );
     });
   });
 }
@@ -796,6 +866,13 @@ function closeProfileModal() {
  */
 async function init() {
   try {
+    // Load and display app version
+    const appVersion = await window.electronAPI.getAppVersion();
+    const appVersionElement = document.getElementById("appVersion");
+    if (appVersionElement) {
+      appVersionElement.textContent = `Work Launcher v${appVersion}`;
+    }
+
     // Load theme
     const savedTheme = await window.electronAPI.getTheme();
     applyTheme(savedTheme);
@@ -865,8 +942,7 @@ async function init() {
       renderProfilesList(currentProfiles, activeProfileId);
     });
 
-    // Initialize app version display
-    const appVersion = await window.electronAPI.getAppVersion();
+    // Initialize update version display
     currentVersionEl.textContent = `v${appVersion}`;
 
     // Setup update event listeners

@@ -162,6 +162,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
   setAppCategory: (appKey, category) =>
     ipcRenderer.invoke("set-app-category", { appKey, category }),
 
+  // Chrome Profiles
+  getChromeProfiles: () => ipcRenderer.invoke("get-chrome-profiles"),
+  setChromeProfile: (appKey, profileDir) =>
+    ipcRenderer.invoke("set-chrome-profile", { appKey, profileDir }),
+
   // Launch single app
   launchSingleApp: (appKey) => ipcRenderer.invoke("launch-single-app", appKey),
 });

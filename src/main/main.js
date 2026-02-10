@@ -1490,6 +1490,28 @@ function setupIpcHandlers() {
     return apps;
   });
 
+  // ============================================
+  // Chrome Profile Management
+  // ============================================
+  ipcMain.handle("get-chrome-profiles", async () => {
+    return getChromeProfiles();
+  });
+
+  ipcMain.handle("set-chrome-profile", (event, { appKey, profileDir }) => {
+    const apps = store.get("apps");
+    if (apps[appKey]) {
+      // Set the profile directory and update args
+      apps[appKey].chromeProfile = profileDir;
+      if (profileDir) {
+        apps[appKey].args = [`--profile-directory=${profileDir}`];
+      } else {
+        apps[appKey].args = [];
+      }
+      store.set("apps", apps);
+    }
+    return apps;
+  });
+
   // Launch single app from tray
   ipcMain.handle("launch-single-app", async (event, appKey) => {
     const apps = store.get("apps");
@@ -1566,6 +1588,82 @@ function getDefaultCategory(appKey) {
     }
   }
   return "other";
+}
+
+/**
+ * Get Chrome profiles from the Chrome User Data directory
+ * @returns {Array} - Array of profile objects { name, dir, displayName }
+ */
+function getChromeProfiles() {
+  const profiles = [];
+  const chromeUserDataPath = path.join(
+    process.env.LOCALAPPDATA,
+    "Google",
+    "Chrome",
+    "User Data",
+  );
+
+  try {
+    if (!fs.existsSync(chromeUserDataPath)) {
+      return profiles;
+    }
+
+    // Read the Local State file to get profile names
+    const localStatePath = path.join(chromeUserDataPath, "Local State");
+    if (fs.existsSync(localStatePath)) {
+      const localState = JSON.parse(fs.readFileSync(localStatePath, "utf8"));
+      const profileInfo = localState.profile?.info_cache || {};
+
+      for (const [profileDir, info] of Object.entries(profileInfo)) {
+        profiles.push({
+          dir: profileDir,
+          name: info.name || profileDir,
+          shortcutName: info.shortcut_name || info.name || profileDir,
+          avatarIcon: info.avatar_icon || null,
+        });
+      }
+    }
+
+    // If no profiles found from Local State, scan directories
+    if (profiles.length === 0) {
+      const items = fs.readdirSync(chromeUserDataPath, { withFileTypes: true });
+      for (const item of items) {
+        if (item.isDirectory()) {
+          // Check for Profile directories (Default, Profile 1, Profile 2, etc.)
+          if (item.name === "Default" || item.name.startsWith("Profile ")) {
+            const prefsPath = path.join(
+              chromeUserDataPath,
+              item.name,
+              "Preferences",
+            );
+            let displayName = item.name === "Default" ? "Default" : item.name;
+
+            // Try to read the profile name from Preferences
+            if (fs.existsSync(prefsPath)) {
+              try {
+                const prefs = JSON.parse(fs.readFileSync(prefsPath, "utf8"));
+                if (prefs.profile?.name) {
+                  displayName = prefs.profile.name;
+                }
+              } catch (e) {
+                // Use default name
+              }
+            }
+
+            profiles.push({
+              dir: item.name,
+              name: displayName,
+              shortcutName: displayName,
+            });
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error reading Chrome profiles:", error);
+  }
+
+  return profiles;
 }
 
 // Scheduled launch timer

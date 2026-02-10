@@ -4,6 +4,10 @@ All notable changes to Work Launcher will be documented in this file.
 
 ## [1.0.23] - 2026-02-09
 
+### Added
+- Chrome Profile Selection: Users can now select which Chrome profile to use when launching Google Chrome
+- Automatically detects all available Chrome profiles from the system
+- Selected profile is saved and persisted across app restarts
 
 ### Removed
 - Startup Settings section has been removed (Run on Windows Startup, Ask Before Launching, Minimize to Tray)
