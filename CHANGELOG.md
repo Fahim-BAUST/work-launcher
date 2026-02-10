@@ -4,6 +4,7 @@ All notable changes to Work Launcher will be documented in this file.
 
 ## [1.0.25] - 2026-02-10
 
+
 ### Added
 
 - **Inline Priority Tags**: Add priority tags directly inside note content
