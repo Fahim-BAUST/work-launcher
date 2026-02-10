@@ -4,6 +4,7 @@ All notable changes to Work Launcher will be documented in this file.
 
 ## [1.0.26] - 2026-02-10
 
+
 ### Fixed
 
 - **PDF Export Enhancements**:
