@@ -32,7 +32,7 @@ work-launcher/
 │   │   ├── autoLaunch.js    # Windows startup registration
 │   │   └── preload.js       # Context bridge for renderer
 │   └── renderer/       # Renderer process (Browser)
-│       ├── index.html  # Main UI structure
+│       ├── index.html  # Main UI structure (Settings, Notes, Help tabs)
 │       ├── renderer.js # UI logic, event handlers
 │       └── styles.css  # All styling
 ├── assets/             # Icons and images
@@ -66,12 +66,18 @@ work-launcher/
 
 ### `src/renderer/renderer.js`
 - All UI event handlers
-- Notes feature with rich text editor
+- Notes feature with rich text editor:
+  - Inline priority tags (@High, @Medium, @Low, @Todo, @Done)
+  - Code blocks with syntax highlighting
+  - Quote blocks with delete buttons
+  - Image support with overlay controls (view, copy, delete)
+  - Image keyboard shortcuts and context menu
 - Profile management
 - Settings persistence
+- Help tab integration
 
 ### `src/renderer/styles.css`
-- Complete styling (2800+ lines)
+- Complete styling (3400+ lines)
 - Dark theme (default) and light theme
 - CSS variables for theming
 

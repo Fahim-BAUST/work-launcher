@@ -1423,6 +1423,9 @@ function setupIpcHandlers() {
         <head>
           <meta charset="UTF-8">
           <style>
+            * {
+              box-sizing: border-box;
+            }
             body {
               font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
               padding: 40px;
@@ -1437,6 +1440,33 @@ function setupIpcHandlers() {
             }
             .content {
               font-size: 14px;
+              color: #333;
+            }
+            .content * {
+              color: inherit;
+            }
+            .content ul, .content ol {
+              margin: 10px 0;
+              padding-left: 24px;
+            }
+            .content li {
+              margin: 4px 0;
+              color: #333;
+            }
+            /* Strikethrough text */
+            s, strike, del {
+              text-decoration: line-through;
+              color: #666;
+            }
+            /* Bold, italic, underline */
+            b, strong {
+              font-weight: bold;
+            }
+            i, em {
+              font-style: italic;
+            }
+            u {
+              text-decoration: underline;
             }
             pre, code {
               background: #f4f4f4;
@@ -1444,6 +1474,103 @@ function setupIpcHandlers() {
               border-radius: 4px;
               font-family: 'Consolas', monospace;
               overflow-x: auto;
+            }
+            blockquote {
+              border-left: 4px solid #10b981;
+              margin: 10px 0;
+              padding: 10px 15px;
+              background: #f0fdf4;
+              border-radius: 0 8px 8px 0;
+            }
+            /* Inline Priority Tags */
+            .inline-priority-tag {
+              display: inline-block;
+              padding: 2px 8px;
+              margin: 0 4px;
+              border-radius: 12px;
+              font-size: 0.75rem;
+              font-weight: 600;
+              vertical-align: middle;
+            }
+            .inline-priority-tag.priority-highest {
+              background: #dc2626;
+              color: #fff;
+            }
+            .inline-priority-tag.priority-high {
+              background: #ea580c;
+              color: #fff;
+            }
+            .inline-priority-tag.priority-medium {
+              background: #eab308;
+              color: #000;
+            }
+            .inline-priority-tag.priority-low {
+              background: #22c55e;
+              color: #fff;
+            }
+            .inline-priority-tag.priority-lowest {
+              background: #3b82f6;
+              color: #fff;
+            }
+            .inline-priority-tag.priority-done {
+              background: #8b5cf6;
+              color: #fff;
+              text-decoration: line-through;
+            }
+            /* Images */
+            img {
+              max-width: 100%;
+              height: auto;
+              border-radius: 8px;
+              margin: 10px 0;
+            }
+            .img-resize-wrapper {
+              display: inline-block;
+            }
+            /* Hide image overlay icons in PDF */
+            .img-overlay {
+              display: none !important;
+            }
+            /* Code blocks */
+            .code-block-wrapper {
+              background: #1e1e1e;
+              border-radius: 8px;
+              margin: 10px 0;
+              overflow: hidden;
+            }
+            .code-block-wrapper pre {
+              margin: 0;
+              padding: 15px;
+              background: #1e1e1e;
+              color: #d4d4d4;
+            }
+            .code-block-header {
+              display: none;
+            }
+            .code-block-delete-btn {
+              display: none;
+            }
+            /* Quote blocks */
+            .blockquote-wrapper {
+              margin: 10px 0;
+            }
+            .blockquote-delete-btn {
+              display: none;
+            }
+            /* Override any CSS variable colors that won't work in PDF */
+            div, span, p {
+              color: #333 !important;
+            }
+            /* Ensure strikethrough text is visible but slightly muted */
+            s, strike, del {
+              color: #666 !important;
+            }
+            /* Don't override tag colors */
+            .inline-priority-tag, .inline-priority-tag * {
+              color: inherit !important;
+            }
+            .inline-priority-tag.priority-medium, .inline-priority-tag.priority-medium * {
+              color: #000 !important;
             }
             .meta {
               color: #666;
@@ -1456,14 +1583,33 @@ function setupIpcHandlers() {
         </head>
         <body>
           <h1>${noteTitle || "Untitled Note"}</h1>
-          <div class="content">${noteContent || ""}</div>
+          <div class="content">__NOTE_CONTENT_PLACEHOLDER__</div>
           <div class="meta">Exported from Work Launcher on ${new Date().toLocaleString()}</div>
         </body>
         </html>
       `;
 
+        // Clean the note content to remove inline color styles that might cause visibility issues
+        // This handles CSS variables, font tags with color, and light colors from dark mode
+        let cleanedContent = (noteContent || "")
+          // Remove CSS variable color references (but not background-color or border-color)
+          .replace(/([^-])color:\s*var\([^)]+\);?/gi, "$1")
+          // Remove font tags' color attribute but keep the content
+          .replace(/<font[^>]*\scolor="[^"]*"[^>]*>/gi, "<span>")
+          .replace(/<\/font>/gi, "</span>")
+          // Remove inline text color styles (not background-color or border-color)
+          .replace(/([;"\s])color:\s*[^;"]+;?/gi, "$1")
+          // Clean up empty style attributes
+          .replace(/style="\s*;?\s*"/gi, "");
+
+        // Insert cleaned content into template
+        const finalHtml = htmlContent.replace(
+          "__NOTE_CONTENT_PLACEHOLDER__",
+          cleanedContent,
+        );
+
         await pdfWindow.loadURL(
-          `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`,
+          `data:text/html;charset=utf-8,${encodeURIComponent(finalHtml)}`,
         );
 
         const pdfData = await pdfWindow.webContents.printToPDF({

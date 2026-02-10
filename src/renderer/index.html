@@ -171,6 +171,22 @@
           ></span>
           Notes
         </button>
+        <button id="helpTab" class="tab-btn" data-tab="help">
+          <span class="icon icon-sm"
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+              <path d="M12 17h.01" /></svg
+          ></span>
+          Help
+        </button>
       </nav>
 
       <main>
@@ -297,7 +313,7 @@
                         <circle cx="11" cy="11" r="8" />
                         <path d="m21 21-4.3-4.3" /></svg
                     ></span>
-                    Re-detect
+                    Reset
                   </button>
                 </div>
               </div>
@@ -342,8 +358,8 @@
               </div>
 
               <p class="help-text" id="noAppsMessage" style="display: none">
-                No applications detected. Click "Re-detect Apps" to scan for
-                installed applications.
+                No applications detected. Click "Reset" to scan for installed
+                applications.
               </p>
             </div>
 
@@ -1226,6 +1242,349 @@
           </section>
         </div>
         <!-- End Notes Tab Panel -->
+
+        <!-- Help Tab Panel -->
+        <div id="helpPanel" class="tab-panel">
+          <section class="help-section">
+            <div class="help-container">
+              <!-- Application Usage -->
+              <div class="help-card">
+                <h2 class="help-title">
+                  <span class="help-icon">🚀</span>
+                  Application Launcher
+                </h2>
+                <div class="help-content">
+                  <div class="help-item">
+                    <h3>📋 Profiles</h3>
+                    <p>
+                      Create different profiles for different work contexts.
+                      Each profile saves which apps are enabled.
+                    </p>
+                    <ul>
+                      <li>
+                        <strong>Create Profile:</strong> Click the
+                        <strong>+</strong> button next to profiles dropdown
+                      </li>
+                      <li>
+                        <strong>Switch Profile:</strong> Select from the
+                        dropdown to load different app configurations
+                      </li>
+                      <li>
+                        <strong>Edit Profile:</strong> Click the pencil icon ✏️
+                        to rename a profile
+                      </li>
+                      <li>
+                        <strong>Delete Profile:</strong> Click the trash icon 🗑️
+                        to remove (cannot delete "Default")
+                      </li>
+                      <li>
+                        <strong>Save to Profile:</strong> After
+                        enabling/disabling apps, they auto-save to current
+                        profile
+                      </li>
+                    </ul>
+                    <p>
+                      <em
+                        >Example profiles: "Development" (IDE, terminal,
+                        browser), "Meetings" (Teams, Outlook), "Design" (Figma,
+                        Photoshop)</em
+                      >
+                    </p>
+                  </div>
+                  <div class="help-item">
+                    <h3>➕ Adding Apps</h3>
+                    <p>
+                      Click <strong>"+ Add App"</strong> to open the Add
+                      Application dialog:
+                    </p>
+                    <ul>
+                      <li>
+                        <strong>Installed Apps Tab:</strong> Shows apps detected
+                        from Start Menu. Click to add.
+                      </li>
+                      <li>
+                        <strong>Browse Tab:</strong> Click "Browse" to select
+                        any .exe, .bat, or .cmd file
+                      </li>
+                      <li>
+                        <strong>URL Tab:</strong> Add websites/web apps that
+                        open in your default browser
+                      </li>
+                      <li>
+                        <strong>Custom Name:</strong> Enter a display name for
+                        the app
+                      </li>
+                      <li>
+                        <strong>Arguments:</strong> Add command-line arguments
+                        if needed (e.g., <code>--profile="Work"</code>)
+                      </li>
+                    </ul>
+                  </div>
+                  <div class="help-item">
+                    <h3>🎛️ Managing Apps</h3>
+                    <ul>
+                      <li>
+                        <strong>Enable/Disable:</strong> Toggle the switch to
+                        include/exclude app from launch
+                      </li>
+                      <li>
+                        <strong>Reorder:</strong> Drag the
+                        <strong>⋮⋮</strong> handle to change launch order
+                      </li>
+                      <li>
+                        <strong>Edit:</strong> Click the pencil icon to change
+                        name or path
+                      </li>
+                      <li>
+                        <strong>Remove:</strong> Click the X button to delete
+                        app from list
+                      </li>
+                      <li>
+                        <strong>Chrome Profiles:</strong> If Chrome is added,
+                        select which browser profile to use
+                      </li>
+                    </ul>
+                  </div>
+                  <div class="help-item">
+                    <h3>⚡ Launching Apps</h3>
+                    <ul>
+                      <li>
+                        <strong>Launch All:</strong> Click
+                        <strong>"🚀 Launch All"</strong> to start all enabled
+                        apps in order
+                      </li>
+                      <li>
+                        <strong>Launch Delay:</strong> Set delay between app
+                        launches (0-5 seconds) to prevent system overload
+                      </li>
+                      <li>
+                        <strong>Startup Dialog:</strong> When enabled, shows
+                        confirmation before launching on Windows startup
+                      </li>
+                      <li>
+                        <strong>Quick Launch:</strong> Right-click tray icon →
+                        Quick Launch to start individual apps
+                      </li>
+                    </ul>
+                  </div>
+                  <div class="help-item">
+                    <h3>⏰ Schedule & Automation</h3>
+                    <ul>
+                      <li>
+                        <strong>Scheduled Launch:</strong> Set a specific time
+                        to auto-launch apps
+                      </li>
+                      <li>
+                        <strong>Days of Week:</strong> Choose which days the
+                        schedule is active
+                      </li>
+                      <li>
+                        <strong>Day-Based Profiles:</strong> Automatically
+                        switch profiles based on day of week
+                      </li>
+                      <li>
+                        <em
+                          >Example: "Development" on Mon-Thu, "Meetings" on
+                          Friday</em
+                        >
+                      </li>
+                    </ul>
+                  </div>
+                  <div class="help-item">
+                    <h3>💾 Backup & Restore</h3>
+                    <ul>
+                      <li>
+                        <strong>Export Settings:</strong> Save all profiles,
+                        apps, and settings to a JSON file
+                      </li>
+                      <li>
+                        <strong>Import Settings:</strong> Restore settings from
+                        a previously exported file
+                      </li>
+                      <li>
+                        <strong>Reset:</strong> Re-scan system for newly
+                        installed applications
+                      </li>
+                    </ul>
+                  </div>
+                  <div class="help-item">
+                    <h3>🔧 Advanced Settings</h3>
+                    <ul>
+                      <li>
+                        <strong>Launch Delay:</strong> Time between launching
+                        each app (prevents crashes on slow PCs)
+                      </li>
+                      <li>
+                        <strong>Hubstaff Integration:</strong> If Hubstaff is
+                        installed, can auto-start time tracking
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Notes Usage -->
+              <div class="help-card">
+                <h2 class="help-title">
+                  <span class="help-icon">📝</span>
+                  Notes Editor
+                </h2>
+                <div class="help-content">
+                  <div class="help-item">
+                    <h3>📄 Creating Notes</h3>
+                    <p>
+                      Click <strong>"+ New Note"</strong> to create a new note.
+                      Notes are auto-saved as you type.
+                    </p>
+                  </div>
+                  <div class="help-item">
+                    <h3>✏️ Editing</h3>
+                    <p>
+                      Click the <strong>✏️ Edit</strong> button to enter edit
+                      mode. Use the toolbar for formatting:
+                    </p>
+                    <ul>
+                      <li>
+                        <strong>B</strong> - Bold, <strong>I</strong> - Italic,
+                        <strong>U</strong> - Underline, <strong>S</strong> -
+                        Strikethrough
+                      </li>
+                      <li>Headings (H1, H2, H3), Lists (bullets, numbers)</li>
+                      <li>Text alignment, links, horizontal lines</li>
+                    </ul>
+                  </div>
+                  <div class="help-item">
+                    <h3>🏷️ Priority Tags</h3>
+                    <p>
+                      Click <strong>"🏷️ Tag"</strong> to insert inline priority
+                      tags:
+                    </p>
+                    <ul>
+                      <li>
+                        🔴 Highest, 🟠 High, 🟡 Medium, 🟢 Low, 🔵 Lowest, ✅
+                        Done
+                      </li>
+                      <li>Click on a tag to remove it</li>
+                    </ul>
+                  </div>
+                  <div class="help-item">
+                    <h3>💻 Code Blocks</h3>
+                    <p>
+                      Click <strong>"&lt;/&gt;"</strong> to insert a code block.
+                      Hover to see the delete button (✕).
+                    </p>
+                    <p>
+                      <kbd>Ctrl+Shift+Backspace</kbd> to delete entire code
+                      block when cursor is inside.
+                    </p>
+                  </div>
+                  <div class="help-item">
+                    <h3>❝ Quote Blocks</h3>
+                    <p>
+                      Click <strong>"❝"</strong> to insert a quote block. Press
+                      <kbd>Enter</kbd> twice at the end to escape.
+                    </p>
+                    <p>
+                      Hover to see delete button, or use
+                      <kbd>Ctrl+Shift+Backspace</kbd> to delete.
+                    </p>
+                  </div>
+                  <div class="help-item">
+                    <h3>🖼️ Images</h3>
+                    <p>
+                      Paste images directly from clipboard (<kbd>Ctrl+V</kbd>).
+                      Image actions:
+                    </p>
+                    <ul>
+                      <li>
+                        <strong>Hover</strong> - Shows overlay buttons (View 👁️,
+                        Copy 📋, Delete 🗑️)
+                      </li>
+                      <li>
+                        <strong>Click</strong> - Select image for keyboard
+                        shortcuts
+                      </li>
+                      <li><strong>Double-click</strong> - View in lightbox</li>
+                      <li>
+                        <strong>Right-click</strong> - Context menu (View, Copy,
+                        Cut, Delete)
+                      </li>
+                      <li><strong>Drag corner</strong> - Resize image</li>
+                    </ul>
+                  </div>
+                  <div class="help-item">
+                    <h3>⌨️ Keyboard Shortcuts (Images)</h3>
+                    <ul>
+                      <li><kbd>Ctrl+C</kbd> - Copy selected image</li>
+                      <li><kbd>Ctrl+X</kbd> - Cut selected image</li>
+                      <li>
+                        <kbd>Delete</kbd> / <kbd>Backspace</kbd> - Delete
+                        selected image
+                      </li>
+                    </ul>
+                  </div>
+                  <div class="help-item">
+                    <h3>🔄 Reordering Notes</h3>
+                    <p>Drag notes in the sidebar to reorder them.</p>
+                  </div>
+                  <div class="help-item">
+                    <h3>📥 Export & Import</h3>
+                    <ul>
+                      <li>
+                        <strong>Export Notes</strong> - Save all notes as JSON
+                        file
+                      </li>
+                      <li>
+                        <strong>Import Notes</strong> - Load notes from JSON
+                        file
+                      </li>
+                      <li>
+                        <strong>Download as PDF</strong> - Export current note
+                        as PDF
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <!-- System Tray -->
+              <div class="help-card">
+                <h2 class="help-title">
+                  <span class="help-icon">🖥️</span>
+                  System Tray
+                </h2>
+                <div class="help-content">
+                  <div class="help-item">
+                    <p>
+                      Work Launcher runs in the system tray (bottom-right corner
+                      of Windows taskbar).
+                    </p>
+                    <ul>
+                      <li>
+                        <strong>Left-click</strong> tray icon - Open settings
+                        window
+                      </li>
+                      <li>
+                        <strong>Right-click</strong> tray icon - Quick menu
+                      </li>
+                      <li>
+                        <strong>Launch All Apps</strong> - Start all enabled
+                        apps
+                      </li>
+                      <li>
+                        <strong>Quick Launch</strong> - Launch individual apps
+                      </li>
+                      <li>
+                        <strong>Profiles</strong> - Switch between profiles
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+        <!-- End Help Tab Panel -->
       </main>
 
       <footer class="app-footer">

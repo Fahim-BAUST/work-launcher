@@ -2,11 +2,27 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
+## [1.0.26] - 2026-02-10
+
+### Fixed
+
+- **PDF Export Enhancements**:
+  - Fixed inline priority tags not appearing in exported PDFs (now includes proper styling for all tag types)
+  - Fixed text content appearing empty in PDFs (removed problematic inline color styles from dark mode)
+  - Hidden image overlay icons (view, copy, delete buttons) in PDF exports
+  - Added comprehensive CSS styling for lists, blockquotes, code blocks, and images in PDF
+  - Improved text visibility by removing CSS variable references and white/light colors
+
 ## [1.0.25] - 2026-02-10
 
 
 ### Added
 
+- **Help Tab**: New comprehensive help section with usage guides
+  - Application Launcher usage (Profiles, Adding Apps, Reordering, Quick Launch, Scheduling, Backup)
+  - Notes Editor guide (Creating, Editing, Priority Tags, Code Blocks, Quote Blocks, Images)
+  - Keyboard shortcuts reference
+  - System Tray usage instructions
 - **Inline Priority Tags**: Add priority tags directly inside note content
   - Available tags: Highest (🔴), High (🟠), Medium (🟡), Low (🟢), Lowest (🔵), Done (✅)
   - Click on a tag to remove it

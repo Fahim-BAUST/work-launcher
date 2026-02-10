@@ -65,8 +65,10 @@ const shortcutDisplay = document.getElementById("shortcutDisplay");
 // Tab Navigation DOM Elements
 const settingsTab = document.getElementById("settingsTab");
 const notesTab = document.getElementById("notesTab");
+const helpTab = document.getElementById("helpTab");
 const settingsPanel = document.getElementById("settingsPanel");
 const notesPanel = document.getElementById("notesPanel");
+const helpPanel = document.getElementById("helpPanel");
 
 // Notes DOM Elements
 const notesContainer = document.getElementById("notesContainer");
@@ -1448,14 +1450,17 @@ function switchTab(tabName) {
   // Update tab buttons
   settingsTab.classList.toggle("active", tabName === "settings");
   notesTab.classList.toggle("active", tabName === "notes");
+  helpTab.classList.toggle("active", tabName === "help");
 
   // Update tab panels
   settingsPanel.classList.toggle("active", tabName === "settings");
   notesPanel.classList.toggle("active", tabName === "notes");
+  helpPanel.classList.toggle("active", tabName === "help");
 }
 
 settingsTab.addEventListener("click", () => switchTab("settings"));
 notesTab.addEventListener("click", () => switchTab("notes"));
+helpTab.addEventListener("click", () => switchTab("help"));
 
 // Add note button
 addNoteBtn.addEventListener("click", createNewNote);

@@ -30,7 +30,13 @@ A powerful Electron desktop application for Windows that automatically launches 
 - **Global Shortcut** - Launch all apps with `Ctrl+Shift+L`
 
 ### Productivity
-- **Notes Feature** - Built-in rich text notes with formatting, code blocks, and images
+- **Notes Feature** - Rich text editor with:
+  - Inline priority tags (High, Medium, Low, Todo, Done)
+  - Code blocks with syntax highlighting
+  - Quote blocks with one-click removal
+  - Image support (paste, drag & drop) with overlay controls
+  - Image keyboard shortcuts (Ctrl+C/X, Delete)
+- **Help Tab** - Built-in usage guides for all features
 - **Import/Export** - Backup and restore your settings
 - **Dark/Light Theme** - Choose your preferred theme
 
@@ -118,9 +124,18 @@ npm run build
 ### Notes
 
 1. Switch to the **Notes** tab
-2. Create notes with rich text formatting
-3. Add code blocks with the `</>` button
-4. Insert images by pasting or drag & drop
+2. Create notes with rich text formatting (bold, italic, underline, lists)
+3. Add inline priority tags from the tag dropdown (@High, @Medium, @Low, @Todo, @Done)
+4. Add code blocks with the `</>` button (supports multiple languages)
+5. Insert quote blocks with the quote button (press Enter twice to exit)
+6. Insert images by pasting or drag & drop
+7. Manage images with overlay controls (view, copy, delete) or keyboard shortcuts
+
+### Help
+
+1. Switch to the **Help** tab
+2. Browse comprehensive guides for Application Launcher features
+3. Learn all Notes Editor capabilities with examples
 
 ## ⚙️ Configuration
 
