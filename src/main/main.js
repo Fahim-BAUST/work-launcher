@@ -129,6 +129,7 @@ const store = new Store({
     globalShortcut: "CommandOrControl+Shift+L",
     shortcutEnabled: true,
     notes: [],
+    noteOrder: [], // Array of note IDs in display order
     activeNoteId: null,
     // Scheduled launches
     scheduledLaunch: {
@@ -957,12 +958,37 @@ function setupIpcHandlers() {
     return notes;
   });
 
-  ipcMain.handle("update-note", (event, { id, title, content }) => {
+  ipcMain.handle("update-note", (event, { id, title, content, priority }) => {
     const notes = getNotesArray();
     const index = notes.findIndex((n) => n.id === id);
     if (index !== -1) {
       notes[index].title = title;
       notes[index].content = content;
+      if (priority !== undefined) {
+        notes[index].priority = priority;
+      }
+      notes[index].updatedAt = new Date().toISOString();
+      store.set("notes", notes);
+    }
+    return notes;
+  });
+
+  // Note order management
+  ipcMain.handle("get-note-order", () => {
+    return store.get("noteOrder", []);
+  });
+
+  ipcMain.handle("set-note-order", (event, order) => {
+    store.set("noteOrder", order);
+    return order;
+  });
+
+  // Update note priority only
+  ipcMain.handle("update-note-priority", (event, { id, priority }) => {
+    const notes = getNotesArray();
+    const index = notes.findIndex((n) => n.id === id);
+    if (index !== -1) {
+      notes[index].priority = priority;
       notes[index].updatedAt = new Date().toISOString();
       store.set("notes", notes);
     }

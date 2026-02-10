@@ -1088,9 +1088,8 @@
                     </button>
                     <button
                       type="button"
-                      data-command="formatBlock"
-                      data-value="blockquote"
-                      title="Quote"
+                      id="insertQuoteBtn"
+                      title="Quote (click to add/remove)"
                     >
                       ❝
                     </button>
@@ -1134,6 +1133,63 @@
                         id="highlightColorPicker"
                         value="#ffff00"
                       />
+                    </div>
+                    <span class="toolbar-divider"></span>
+
+                    <!-- Priority Tags -->
+                    <div class="priority-tags-dropdown">
+                      <button
+                        type="button"
+                        id="insertPriorityBtn"
+                        title="Insert Priority Tag"
+                        class="priority-dropdown-btn"
+                      >
+                        🏷️ Tag
+                      </button>
+                      <div class="priority-tags-menu" id="priorityTagsMenu">
+                        <button
+                          type="button"
+                          data-priority="highest"
+                          class="priority-tag-option priority-highest"
+                        >
+                          🔴 Highest
+                        </button>
+                        <button
+                          type="button"
+                          data-priority="high"
+                          class="priority-tag-option priority-high"
+                        >
+                          🟠 High
+                        </button>
+                        <button
+                          type="button"
+                          data-priority="medium"
+                          class="priority-tag-option priority-medium"
+                        >
+                          🟡 Medium
+                        </button>
+                        <button
+                          type="button"
+                          data-priority="low"
+                          class="priority-tag-option priority-low"
+                        >
+                          🟢 Low
+                        </button>
+                        <button
+                          type="button"
+                          data-priority="lowest"
+                          class="priority-tag-option priority-lowest"
+                        >
+                          🔵 Lowest
+                        </button>
+                        <button
+                          type="button"
+                          data-priority="done"
+                          class="priority-tag-option priority-done"
+                        >
+                          ✅ Done
+                        </button>
+                      </div>
                     </div>
                     <span class="toolbar-divider"></span>
 

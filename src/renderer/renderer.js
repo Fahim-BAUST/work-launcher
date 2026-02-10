@@ -129,7 +129,9 @@ let activeProfileId = "default";
 let editingProfileId = null;
 let notesDebounceTimer = null;
 let draggedItem = null;
+let draggedNoteItem = null;
 let currentNotes = [];
+let currentNoteOrder = [];
 let activeNoteId = null;
 
 // Search and filter state
@@ -719,6 +721,81 @@ function updateOrderNumbers() {
   });
 }
 
+// ============================================
+// Note Drag and Drop Handlers
+// ============================================
+function handleNoteDragStart(e) {
+  draggedNoteItem = this;
+  this.classList.add("dragging");
+  e.dataTransfer.effectAllowed = "move";
+}
+
+function handleNoteDragEnd(e) {
+  this.classList.remove("dragging");
+  document.querySelectorAll(".note-item").forEach((item) => {
+    item.classList.remove("drag-over");
+  });
+  draggedNoteItem = null;
+  // Update order numbers
+  updateNoteOrderNumbers();
+  // Save the new order
+  saveNoteOrder();
+}
+
+function handleNoteDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+}
+
+function handleNoteDragEnter(e) {
+  e.preventDefault();
+  if (this !== draggedNoteItem) {
+    this.classList.add("drag-over");
+  }
+}
+
+function handleNoteDragLeave(e) {
+  this.classList.remove("drag-over");
+}
+
+function handleNoteDrop(e) {
+  e.preventDefault();
+  if (this !== draggedNoteItem && draggedNoteItem) {
+    const allItems = [...notesList.querySelectorAll(".note-item")];
+    const draggedIndex = allItems.indexOf(draggedNoteItem);
+    const dropIndex = allItems.indexOf(this);
+
+    if (draggedIndex < dropIndex) {
+      this.parentNode.insertBefore(draggedNoteItem, this.nextSibling);
+    } else {
+      this.parentNode.insertBefore(draggedNoteItem, this);
+    }
+  }
+  this.classList.remove("drag-over");
+}
+
+function updateNoteOrderNumbers() {
+  const items = document.querySelectorAll(".note-item");
+  items.forEach((item, index) => {
+    const orderNum = item.querySelector(".note-order-num");
+    if (orderNum) {
+      orderNum.textContent = index + 1;
+    }
+  });
+}
+
+async function saveNoteOrder() {
+  const items = document.querySelectorAll(".note-item");
+  const order = [];
+  items.forEach((item) => {
+    if (item.dataset.noteId) {
+      order.push(item.dataset.noteId);
+    }
+  });
+  currentNoteOrder = order;
+  await window.electronAPI.setNoteOrder(order);
+}
+
 /**
  * Apply theme to the page
  */
@@ -905,6 +982,7 @@ async function init() {
 
     // Load notes
     currentNotes = await window.electronAPI.getNotes();
+    currentNoteOrder = await window.electronAPI.getNoteOrder();
     activeNoteId = await window.electronAPI.getActiveNoteId();
     renderNotesList();
     if (activeNoteId) {
@@ -1084,6 +1162,17 @@ function renderNotesList() {
     });
   }
 
+  // Sort notes by saved order
+  filteredNotes = [...filteredNotes].sort((a, b) => {
+    const orderA = currentNoteOrder.indexOf(a.id);
+    const orderB = currentNoteOrder.indexOf(b.id);
+    // Notes not in order array go to end
+    if (orderA === -1 && orderB === -1) return 0;
+    if (orderA === -1) return 1;
+    if (orderB === -1) return -1;
+    return orderA - orderB;
+  });
+
   if (filteredNotes.length === 0) {
     noNotesMessage.style.display = "block";
     noNotesMessage.textContent = notesSearchQuery
@@ -1100,21 +1189,34 @@ function renderNotesList() {
     noteEditorPanel.style.display = "flex";
   }
 
-  filteredNotes.forEach((note) => {
+  filteredNotes.forEach((note, index) => {
     const noteItem = document.createElement("div");
     const isSelected = selectedNoteIds.has(note.id);
     noteItem.className = `note-item ${note.id === activeNoteId ? "active" : ""} ${isSelected ? "selected" : ""}`;
     noteItem.dataset.noteId = note.id;
+    noteItem.draggable = true;
 
     const preview = stripHtml(note.content).substring(0, 50);
     const date = new Date(note.updatedAt || note.createdAt);
     const dateStr = date.toLocaleDateString();
 
     noteItem.innerHTML = `
-      <input type="checkbox" class="note-item-checkbox" ${isSelected ? "checked" : ""} />
-      <div class="note-item-title" title="${(note.title || "Untitled").replace(/"/g, "&quot;")}">${note.title || "Untitled"}</div>
-      <div class="note-item-preview" title="${(preview || "No content").replace(/"/g, "&quot;")}">${preview || "No content"}...</div>
-      <div class="note-item-date">${dateStr}</div>
+      <div class="note-drag-handle" title="Drag to reorder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="8" y1="6" x2="16" y2="6"/>
+          <line x1="8" y1="12" x2="16" y2="12"/>
+          <line x1="8" y1="18" x2="16" y2="18"/>
+        </svg>
+      </div>
+      <div class="note-item-content">
+        <input type="checkbox" class="note-item-checkbox" ${isSelected ? "checked" : ""} />
+        <div class="note-item-header">
+          <span class="note-order-num">${index + 1}</span>
+          <span class="note-item-title" title="${(note.title || "Untitled").replace(/"/g, "&quot;")}">${note.title || "Untitled"}</span>
+        </div>
+        <div class="note-item-preview" title="${(preview || "No content").replace(/"/g, "&quot;")}">${preview || "No content"}...</div>
+        <div class="note-item-date">${dateStr}</div>
+      </div>
     `;
 
     // Checkbox click handler
@@ -1133,11 +1235,23 @@ function renderNotesList() {
 
     // Note item click handler - clicking loads the note
     noteItem.addEventListener("click", (e) => {
-      if (e.target !== checkbox && note.id !== activeNoteId) {
+      if (
+        e.target !== checkbox &&
+        !e.target.closest(".note-drag-handle") &&
+        note.id !== activeNoteId
+      ) {
         saveCurrentNote();
         loadNoteToEditor(note.id);
       }
     });
+
+    // Drag and drop events for notes
+    noteItem.addEventListener("dragstart", handleNoteDragStart);
+    noteItem.addEventListener("dragend", handleNoteDragEnd);
+    noteItem.addEventListener("dragover", handleNoteDragOver);
+    noteItem.addEventListener("dragenter", handleNoteDragEnter);
+    noteItem.addEventListener("dragleave", handleNoteDragLeave);
+    noteItem.addEventListener("drop", handleNoteDrop);
 
     notesList.appendChild(noteItem);
   });
@@ -1204,6 +1318,13 @@ function loadNoteToEditor(noteId) {
 
   // Wrap images with resize handles
   setTimeout(wrapImagesWithResizeHandles, 100);
+
+  // Add title tooltips to existing priority tags
+  setTimeout(() => {
+    noteEditor.querySelectorAll(".inline-priority-tag").forEach((tag) => {
+      tag.title = "Click to remove";
+    });
+  }, 100);
 }
 
 // Show empty editor state
@@ -1514,27 +1635,29 @@ noteEditor.addEventListener("input", () => {
   notesDebounceTimer = setTimeout(saveCurrentNote, 500);
 });
 
-// Handle keyboard events for better code block deletion
+// Handle keyboard events for code block and blockquote
 noteEditor.addEventListener("keydown", (e) => {
-  // Handle Ctrl+Shift+Backspace to delete entire code block
+  const selection = window.getSelection();
+
+  // Handle Ctrl+Shift+Backspace to delete entire code block or blockquote
   if (
     (e.key === "Backspace" || e.key === "Delete") &&
     e.ctrlKey &&
     e.shiftKey
   ) {
-    const selection = window.getSelection();
     if (selection.rangeCount > 0) {
       let node = selection.getRangeAt(0).startContainer;
       if (node.nodeType === Node.TEXT_NODE) {
         node = node.parentNode;
       }
 
-      // Find if we're inside a code block wrapper
+      // Find if we're inside a code block or blockquote wrapper
       let currentNode = node;
       while (currentNode && currentNode !== noteEditor) {
         if (
           currentNode.classList &&
-          currentNode.classList.contains("code-block-wrapper")
+          (currentNode.classList.contains("code-block-wrapper") ||
+            currentNode.classList.contains("blockquote-wrapper"))
         ) {
           e.preventDefault();
           currentNode.remove();
@@ -1547,6 +1670,87 @@ noteEditor.addEventListener("keydown", (e) => {
           return;
         }
         currentNode = currentNode.parentNode;
+      }
+    }
+  }
+
+  // Handle Enter key to escape from blockquote (when cursor at end)
+  if (e.key === "Enter" && !e.shiftKey) {
+    if (selection.rangeCount > 0) {
+      let node = selection.getRangeAt(0).startContainer;
+      if (node.nodeType === Node.TEXT_NODE) {
+        node = node.parentNode;
+      }
+
+      // Find if we're inside a blockquote-wrapper
+      let blockquoteWrapper = null;
+      let currentNode = node;
+      while (currentNode && currentNode !== noteEditor) {
+        if (
+          currentNode.classList &&
+          currentNode.classList.contains("blockquote-wrapper")
+        ) {
+          blockquoteWrapper = currentNode;
+          break;
+        }
+        currentNode = currentNode.parentNode;
+      }
+
+      // If in blockquote and cursor is at the end, escape to new paragraph
+      if (blockquoteWrapper) {
+        const blockquote = blockquoteWrapper.querySelector("blockquote");
+        if (blockquote) {
+          const range = selection.getRangeAt(0);
+          const blockquoteContent = blockquote.textContent;
+
+          // Check if cursor is at the end of blockquote
+          // or if the blockquote ends with an empty line (Enter was pressed before)
+          const isAtEnd =
+            range.endContainer === blockquote ||
+            (range.endContainer.nodeType === Node.TEXT_NODE &&
+              range.endOffset === range.endContainer.textContent.length &&
+              range.endContainer.parentNode === blockquote);
+
+          // Check if content ends with newline (user pressed Enter once)
+          const endsWithNewline =
+            blockquoteContent.endsWith("\n") ||
+            blockquote.innerHTML.endsWith("<br>") ||
+            blockquote.innerHTML.endsWith("<br><br>");
+
+          if (isAtEnd && endsWithNewline) {
+            e.preventDefault();
+
+            // Remove trailing br/newline from blockquote
+            blockquote.innerHTML = blockquote.innerHTML
+              .replace(/<br>$/i, "")
+              .trim();
+            if (blockquote.innerHTML === "") {
+              blockquote.innerHTML = "&nbsp;";
+            }
+
+            // Create new paragraph after blockquote wrapper
+            const p = document.createElement("p");
+            p.innerHTML = "<br>";
+            blockquoteWrapper.parentNode.insertBefore(
+              p,
+              blockquoteWrapper.nextSibling,
+            );
+
+            // Move cursor to new paragraph
+            const newRange = document.createRange();
+            newRange.setStart(p, 0);
+            newRange.setEnd(p, 0);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+
+            // Trigger save
+            notesSaveStatus.textContent = "Saving...";
+            notesSaveStatus.classList.add("saving");
+            clearTimeout(notesDebounceTimer);
+            notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+            return;
+          }
+        }
       }
     }
   }
@@ -1651,6 +1855,128 @@ document.getElementById("insertCodeBlockBtn").addEventListener("click", (e) => {
   } else {
     noteEditor.appendChild(codeBlockWrapper);
     noteEditor.appendChild(document.createTextNode("\u00A0"));
+  }
+
+  noteEditor.focus();
+
+  // Trigger save
+  notesSaveStatus.textContent = "Saving...";
+  notesSaveStatus.classList.add("saving");
+  clearTimeout(notesDebounceTimer);
+  notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+});
+
+// Quote (blockquote) button handler with delete button
+document.getElementById("insertQuoteBtn").addEventListener("click", (e) => {
+  e.preventDefault();
+
+  // Ensure editor has focus
+  noteEditor.focus();
+
+  const selection = window.getSelection();
+
+  // Check if we're currently inside a blockquote-wrapper - if so, remove it
+  if (selection.rangeCount > 0) {
+    let node = selection.getRangeAt(0).startContainer;
+    if (node.nodeType === Node.TEXT_NODE) {
+      node = node.parentNode;
+    }
+
+    // Find if we're inside a blockquote wrapper
+    let currentNode = node;
+    while (currentNode && currentNode !== noteEditor) {
+      if (
+        currentNode.classList &&
+        currentNode.classList.contains("blockquote-wrapper")
+      ) {
+        // Extract content and remove wrapper
+        const blockquote = currentNode.querySelector("blockquote");
+        const content = blockquote ? blockquote.innerHTML : "";
+        const p = document.createElement("p");
+        p.innerHTML = content || "&nbsp;";
+        currentNode.parentNode.replaceChild(p, currentNode);
+
+        // Trigger save
+        notesSaveStatus.textContent = "Saving...";
+        notesSaveStatus.classList.add("saving");
+        clearTimeout(notesDebounceTimer);
+        notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+        return;
+      }
+      currentNode = currentNode.parentNode;
+    }
+  }
+
+  const selectedText = selection.toString() || "Your quote here...";
+
+  // Create blockquote element with delete button
+  const blockquoteWrapper = document.createElement("div");
+  blockquoteWrapper.className = "blockquote-wrapper";
+
+  const blockquote = document.createElement("blockquote");
+  blockquote.contentEditable = "true";
+  blockquote.innerHTML = selectedText;
+
+  // Add delete button
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "blockquote-delete";
+  deleteBtn.contentEditable = "false";
+  deleteBtn.innerHTML = "✕";
+  deleteBtn.title = "Remove quote";
+  deleteBtn.onclick = function (event) {
+    event.stopPropagation();
+    event.preventDefault();
+    blockquoteWrapper.remove();
+    noteEditor.focus();
+    // Trigger save
+    notesSaveStatus.textContent = "Saving...";
+    notesSaveStatus.classList.add("saving");
+    clearTimeout(notesDebounceTimer);
+    notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+  };
+
+  blockquoteWrapper.appendChild(deleteBtn);
+  blockquoteWrapper.appendChild(blockquote);
+
+  // Insert at cursor position in the editor
+  if (selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    // Check if the range is inside the note editor
+    let container = range.commonAncestorContainer;
+    let isInsideEditor = false;
+    while (container) {
+      if (container === noteEditor) {
+        isInsideEditor = true;
+        break;
+      }
+      container = container.parentNode;
+    }
+
+    if (isInsideEditor) {
+      range.deleteContents();
+      range.insertNode(blockquoteWrapper);
+      // Add a paragraph after for easier editing
+      const p = document.createElement("p");
+      p.innerHTML = "<br>";
+      range.setStartAfter(blockquoteWrapper);
+      range.insertNode(p);
+      // Move cursor to the new paragraph
+      range.setStart(p, 0);
+      range.setEnd(p, 0);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    } else {
+      // If not inside editor, append to editor
+      noteEditor.appendChild(blockquoteWrapper);
+      const p = document.createElement("p");
+      p.innerHTML = "<br>";
+      noteEditor.appendChild(p);
+    }
+  } else {
+    noteEditor.appendChild(blockquoteWrapper);
+    const p = document.createElement("p");
+    p.innerHTML = "<br>";
+    noteEditor.appendChild(p);
   }
 
   noteEditor.focus();
@@ -1835,6 +2161,116 @@ document.getElementById("clearFormattingBtn").addEventListener("click", (e) => {
   notesDebounceTimer = setTimeout(saveCurrentNote, 500);
 });
 
+// ============================================
+// Priority Tag Insertion
+// ============================================
+const insertPriorityBtn = document.getElementById("insertPriorityBtn");
+const priorityTagsMenu = document.getElementById("priorityTagsMenu");
+
+// Priority tag colors and labels
+const priorityTagStyles = {
+  highest: { bg: "#dc2626", color: "#fff", label: "Highest Priority" },
+  high: { bg: "#ea580c", color: "#fff", label: "High Priority" },
+  medium: { bg: "#eab308", color: "#000", label: "Medium Priority" },
+  low: { bg: "#22c55e", color: "#fff", label: "Low Priority" },
+  lowest: { bg: "#3b82f6", color: "#fff", label: "Lowest Priority" },
+  done: { bg: "#8b5cf6", color: "#fff", label: "Done" },
+};
+
+// Toggle priority menu
+insertPriorityBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  priorityTagsMenu.classList.toggle("show");
+});
+
+// Close priority menu when clicking outside
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".priority-tags-dropdown")) {
+    priorityTagsMenu.classList.remove("show");
+  }
+});
+
+// Handle priority tag insertion
+priorityTagsMenu.addEventListener("click", (e) => {
+  const btn = e.target.closest(".priority-tag-option");
+  if (!btn) return;
+
+  e.preventDefault();
+  const priority = btn.dataset.priority;
+  const style = priorityTagStyles[priority];
+
+  if (!style) return;
+
+  noteEditor.focus();
+
+  // Create priority tag element
+  const tag = document.createElement("span");
+  tag.className = `inline-priority-tag priority-${priority}`;
+  tag.contentEditable = "false";
+  tag.style.cssText = `
+    display: inline-block;
+    padding: 2px 8px;
+    margin: 0 4px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: ${style.bg};
+    color: ${style.color};
+    user-select: none;
+    cursor: pointer;
+  `;
+  tag.textContent = style.label;
+  tag.dataset.priority = priority;
+  tag.title = "Click to remove";
+
+  // Insert at cursor position
+  const selection = window.getSelection();
+  if (selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(tag);
+
+    // Add a space after the tag
+    const space = document.createTextNode(" ");
+    range.setStartAfter(tag);
+    range.insertNode(space);
+    range.setStartAfter(space);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  // Close menu
+  priorityTagsMenu.classList.remove("show");
+
+  // Trigger save
+  notesSaveStatus.textContent = "Saving...";
+  notesSaveStatus.classList.add("saving");
+  clearTimeout(notesDebounceTimer);
+  notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+});
+
+// Handle clicking on inline priority tags to remove them
+noteEditor.addEventListener("click", (e) => {
+  const tag = e.target.closest(".inline-priority-tag");
+  if (tag && isEditMode) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Show confirmation or just remove directly
+    tag.remove();
+
+    // Trigger save
+    notesSaveStatus.textContent = "Saving...";
+    notesSaveStatus.classList.add("saving");
+    clearTimeout(notesDebounceTimer);
+    notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+
+    showNotification("Priority tag removed");
+  }
+});
+
 // Handle paste event for images (copy/paste from clipboard)
 noteEditor.addEventListener("paste", async (e) => {
   const clipboardData = e.clipboardData || window.clipboardData;
@@ -1859,13 +2295,26 @@ noteEditor.addEventListener("paste", async (e) => {
           range.deleteContents();
           range.insertNode(img);
 
-          // Move cursor after the image
-          range.setStartAfter(img);
-          range.setEndAfter(img);
+          // Add a paragraph after the image for easier editing
+          const p = document.createElement("p");
+          p.innerHTML = "<br>";
+          if (img.nextSibling) {
+            img.parentNode.insertBefore(p, img.nextSibling);
+          } else {
+            img.parentNode.appendChild(p);
+          }
+
+          // Move cursor to the new paragraph
+          range.setStart(p, 0);
+          range.setEnd(p, 0);
           selection.removeAllRanges();
           selection.addRange(range);
         } else {
           noteEditor.appendChild(img);
+          // Add a paragraph after the image
+          const p = document.createElement("p");
+          p.innerHTML = "<br>";
+          noteEditor.appendChild(p);
         }
 
         // Observe the new image for resize
@@ -1934,15 +2383,76 @@ function openImageInLightbox(imgSrc) {
   document.body.style.overflow = "hidden"; // Prevent background scroll
 }
 
-// Open lightbox when clicking on an image in the note editor
+// Note: Image click handling is done in the click handler that also manages selection
+// The overlay view button is used to open the lightbox
+
+// Handle clicking at the bottom of editor to add new line after images/blockquotes
 noteEditor.addEventListener("click", (e) => {
-  // Don't open lightbox if clicking on resize handle or while resizing
-  if (e.target.classList.contains("img-resize-handle") || isResizing) {
-    return;
-  }
-  if (e.target.tagName === "IMG") {
-    e.preventDefault();
-    openImageInLightbox(e.target.src);
+  // Only in edit mode
+  if (!isEditMode) return;
+
+  // Check if click is directly on the editor (not on a child element)
+  if (e.target === noteEditor) {
+    // Get click position relative to editor
+    const editorRect = noteEditor.getBoundingClientRect();
+    const clickY = e.clientY - editorRect.top;
+
+    // Check if there's content and if clicking below it
+    const lastChild = noteEditor.lastElementChild;
+    if (lastChild) {
+      const lastChildRect = lastChild.getBoundingClientRect();
+      const lastChildBottom = lastChildRect.bottom - editorRect.top;
+
+      // If clicking below the last element, create a new paragraph
+      if (clickY > lastChildBottom) {
+        // Check if last child is an image, blockquote-wrapper, code-block-wrapper, or img-wrapper
+        const isBlockElement =
+          lastChild.tagName === "IMG" ||
+          lastChild.classList?.contains("blockquote-wrapper") ||
+          lastChild.classList?.contains("code-block-wrapper") ||
+          lastChild.classList?.contains("img-resize-wrapper") ||
+          lastChild.tagName === "BLOCKQUOTE" ||
+          lastChild.tagName === "PRE";
+
+        if (
+          isBlockElement ||
+          lastChild.tagName !== "P" ||
+          lastChild.innerHTML.trim() === "<br>"
+        ) {
+          // Create new paragraph
+          const p = document.createElement("p");
+          p.innerHTML = "<br>";
+          noteEditor.appendChild(p);
+
+          // Move cursor to new paragraph
+          const range = document.createRange();
+          const selection = window.getSelection();
+          range.setStart(p, 0);
+          range.setEnd(p, 0);
+          selection.removeAllRanges();
+          selection.addRange(range);
+
+          // Trigger save
+          notesSaveStatus.textContent = "Saving...";
+          notesSaveStatus.classList.add("saving");
+          clearTimeout(notesDebounceTimer);
+          notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+        }
+      }
+    } else {
+      // Editor is empty, create initial paragraph
+      const p = document.createElement("p");
+      p.innerHTML = "<br>";
+      noteEditor.appendChild(p);
+
+      // Move cursor to new paragraph
+      const range = document.createRange();
+      const selection = window.getSelection();
+      range.setStart(p, 0);
+      range.setEnd(p, 0);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
   }
 });
 
@@ -2000,7 +2510,10 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-// Wrap images with resize handles
+// Selected image for clipboard operations
+let selectedImage = null;
+
+// Wrap images with resize handles and overlay buttons
 function wrapImagesWithResizeHandles() {
   const images = noteEditor.querySelectorAll("img");
   images.forEach((img) => {
@@ -2016,6 +2529,13 @@ function wrapImagesWithResizeHandles() {
         handle = document.createElement("span");
         handle.className = "img-resize-handle";
         parent.appendChild(handle);
+      }
+
+      // Verify overlay exists
+      let overlay = parent.querySelector(".img-overlay");
+      if (!overlay) {
+        overlay = createImageOverlay(img, parent);
+        parent.appendChild(overlay);
       }
 
       // Always reattach event listener (in case it was lost on reload)
@@ -2037,16 +2557,244 @@ function wrapImagesWithResizeHandles() {
     const handle = document.createElement("span");
     handle.className = "img-resize-handle";
 
+    // Create overlay with buttons
+    const overlay = createImageOverlay(img, wrapper);
+
     // Wrap the image
     img.parentNode.insertBefore(wrapper, img);
     wrapper.appendChild(img);
     wrapper.appendChild(handle);
+    wrapper.appendChild(overlay);
     img.classList.add("wrapped");
 
     // Add resize event listeners to handle
     handle.addEventListener("mousedown", startResize);
   });
 }
+
+// Create image overlay with view/delete buttons
+function createImageOverlay(img, wrapper) {
+  const overlay = document.createElement("div");
+  overlay.className = "img-overlay";
+  overlay.contentEditable = "false";
+
+  // View button
+  const viewBtn = document.createElement("button");
+  viewBtn.className = "img-overlay-btn img-view-btn";
+  viewBtn.innerHTML = "👁️";
+  viewBtn.title = "View image";
+  viewBtn.onclick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openImageInLightbox(img.src);
+  };
+
+  // Copy button
+  const copyBtn = document.createElement("button");
+  copyBtn.className = "img-overlay-btn img-copy-btn";
+  copyBtn.innerHTML = "📋";
+  copyBtn.title = "Copy image";
+  copyBtn.onclick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    copyImageToClipboard(img);
+  };
+
+  // Delete button
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "img-overlay-btn img-delete-btn";
+  deleteBtn.innerHTML = "🗑️";
+  deleteBtn.title = "Delete image";
+  deleteBtn.onclick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    deleteImage(wrapper);
+  };
+
+  overlay.appendChild(viewBtn);
+  overlay.appendChild(copyBtn);
+  overlay.appendChild(deleteBtn);
+
+  return overlay;
+}
+
+// Copy image to clipboard
+async function copyImageToClipboard(img) {
+  try {
+    // For data URLs, convert to blob
+    if (img.src.startsWith("data:")) {
+      const response = await fetch(img.src);
+      const blob = await response.blob();
+      await navigator.clipboard.write([
+        new ClipboardItem({ [blob.type]: blob }),
+      ]);
+      showNotification("Image copied to clipboard");
+    } else {
+      // For external URLs, copy the URL
+      await navigator.clipboard.writeText(img.src);
+      showNotification("Image URL copied to clipboard");
+    }
+  } catch (err) {
+    console.error("Failed to copy image:", err);
+    // Fallback: select the image for manual copy
+    selectImage(img);
+    showNotification("Select and use Ctrl+C to copy");
+  }
+}
+
+// Cut image (copy + delete)
+async function cutImage(img, wrapper) {
+  await copyImageToClipboard(img);
+  deleteImage(wrapper);
+  showNotification("Image cut to clipboard");
+}
+
+// Delete image
+function deleteImage(wrapper) {
+  wrapper.remove();
+  // Trigger save
+  notesSaveStatus.textContent = "Saving...";
+  notesSaveStatus.classList.add("saving");
+  clearTimeout(notesDebounceTimer);
+  notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+  showNotification("Image deleted");
+}
+
+// Select image for keyboard operations
+function selectImage(img) {
+  selectedImage = img;
+  // Visual feedback
+  document
+    .querySelectorAll(".img-resize-wrapper.selected")
+    .forEach((w) => w.classList.remove("selected"));
+  const wrapper = img.closest(".img-resize-wrapper");
+  if (wrapper) {
+    wrapper.classList.add("selected");
+  }
+}
+
+// Image context menu
+const imageContextMenu = document.createElement("div");
+imageContextMenu.className = "image-context-menu";
+imageContextMenu.innerHTML = `
+  <button class="context-menu-item" data-action="view">👁️ View</button>
+  <button class="context-menu-item" data-action="copy">📋 Copy</button>
+  <button class="context-menu-item" data-action="cut">✂️ Cut</button>
+  <div class="context-menu-divider"></div>
+  <button class="context-menu-item context-menu-danger" data-action="delete">🗑️ Delete</button>
+`;
+document.body.appendChild(imageContextMenu);
+
+let contextMenuTargetImg = null;
+let contextMenuTargetWrapper = null;
+
+// Show context menu on right-click
+noteEditor.addEventListener("contextmenu", (e) => {
+  const img = e.target.closest("img");
+  if (img && isEditMode) {
+    e.preventDefault();
+    contextMenuTargetImg = img;
+    contextMenuTargetWrapper = img.closest(".img-resize-wrapper");
+
+    // Position menu
+    imageContextMenu.style.left = e.clientX + "px";
+    imageContextMenu.style.top = e.clientY + "px";
+    imageContextMenu.classList.add("show");
+
+    // Select the image
+    selectImage(img);
+  }
+});
+
+// Handle context menu clicks
+imageContextMenu.addEventListener("click", async (e) => {
+  const action = e.target.dataset.action;
+  if (!action || !contextMenuTargetImg) return;
+
+  switch (action) {
+    case "view":
+      openImageInLightbox(contextMenuTargetImg.src);
+      break;
+    case "copy":
+      await copyImageToClipboard(contextMenuTargetImg);
+      break;
+    case "cut":
+      await cutImage(contextMenuTargetImg, contextMenuTargetWrapper);
+      break;
+    case "delete":
+      deleteImage(contextMenuTargetWrapper);
+      break;
+  }
+
+  hideImageContextMenu();
+});
+
+// Hide context menu
+function hideImageContextMenu() {
+  imageContextMenu.classList.remove("show");
+  contextMenuTargetImg = null;
+  contextMenuTargetWrapper = null;
+}
+
+// Hide context menu on click outside
+document.addEventListener("click", (e) => {
+  if (!imageContextMenu.contains(e.target)) {
+    hideImageContextMenu();
+  }
+});
+
+// Hide context menu on scroll
+noteEditor.addEventListener("scroll", hideImageContextMenu);
+
+// Keyboard shortcuts for images (Ctrl+C, Ctrl+X)
+noteEditor.addEventListener("keydown", async (e) => {
+  // Check if an image wrapper is selected
+  const selectedWrapper = noteEditor.querySelector(
+    ".img-resize-wrapper.selected",
+  );
+  if (!selectedWrapper) return;
+
+  const img = selectedWrapper.querySelector("img");
+  if (!img) return;
+
+  if (e.ctrlKey && e.key === "c") {
+    e.preventDefault();
+    await copyImageToClipboard(img);
+  } else if (e.ctrlKey && e.key === "x") {
+    e.preventDefault();
+    await cutImage(img, selectedWrapper);
+  } else if (e.key === "Delete" || e.key === "Backspace") {
+    e.preventDefault();
+    deleteImage(selectedWrapper);
+  }
+});
+
+// Click on image to select it (for keyboard operations)
+noteEditor.addEventListener("click", (e) => {
+  const wrapper = e.target.closest(".img-resize-wrapper");
+  if (wrapper && isEditMode) {
+    // Don't select if clicking overlay buttons
+    if (e.target.closest(".img-overlay")) return;
+    if (e.target.classList.contains("img-resize-handle")) return;
+
+    selectImage(wrapper.querySelector("img"));
+  } else {
+    // Deselect when clicking elsewhere
+    document
+      .querySelectorAll(".img-resize-wrapper.selected")
+      .forEach((w) => w.classList.remove("selected"));
+    selectedImage = null;
+  }
+});
+
+// Double-click on image to view in lightbox
+noteEditor.addEventListener("dblclick", (e) => {
+  const img = e.target.closest("img");
+  if (img) {
+    e.preventDefault();
+    openImageInLightbox(img.src);
+  }
+});
 
 // Start resize
 function startResize(e) {

@@ -97,9 +97,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getActiveNoteId: () => ipcRenderer.invoke("get-active-note-id"),
   setActiveNoteId: (noteId) => ipcRenderer.invoke("set-active-note-id", noteId),
   createNote: (note) => ipcRenderer.invoke("create-note", note),
-  updateNote: (id, title, content) =>
-    ipcRenderer.invoke("update-note", { id, title, content }),
+  updateNote: (id, title, content, priority) =>
+    ipcRenderer.invoke("update-note", { id, title, content, priority }),
   deleteNote: (noteId) => ipcRenderer.invoke("delete-note", noteId),
+  getNoteOrder: () => ipcRenderer.invoke("get-note-order"),
+  setNoteOrder: (order) => ipcRenderer.invoke("set-note-order", order),
+  updateNotePriority: (id, priority) =>
+    ipcRenderer.invoke("update-note-priority", { id, priority }),
 
   // Quit app
   quitApp: () => ipcRenderer.invoke("quit-app"),

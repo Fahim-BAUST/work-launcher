@@ -2,7 +2,7 @@
 
 A powerful Electron desktop application for Windows that automatically launches your work applications on startup. Streamline your workday with one-click app launching, profiles, scheduling, and more.
 
-**Created by [Shiftboolean](https://shiftboolean.com) | Author: Fahim Ashhab**
+**Author: Fahim Ashhab**
 
 ![Version](https://img.shields.io/github/v/release/Fahim-BAUST/work-launcher)
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
@@ -222,6 +222,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 - **Author**: Fahim Ashhab
 - **Email**: f.ashhab@shiftboolean.com
 
----
 
-Made with ❤️ by [Shiftboolean](https://shiftboolean.com)

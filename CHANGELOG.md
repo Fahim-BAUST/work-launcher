@@ -2,6 +2,40 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
+## [1.0.25] - 2026-02-10
+
+### Added
+
+- **Inline Priority Tags**: Add priority tags directly inside note content
+  - Available tags: Highest (🔴), High (🟠), Medium (🟡), Low (🟢), Lowest (🔵), Done (✅)
+  - Click on a tag to remove it
+  - Done tag appears with purple color and strikethrough style
+- **Note Reordering**: Drag and drop notes to reorder them in the sidebar
+- **Image Overlay Actions**: Hover over images to see action buttons
+  - 👁️ View - Open image in lightbox
+  - 📋 Copy - Copy image to clipboard
+  - 🗑️ Delete - Remove image from note
+- **Image Context Menu**: Right-click on images for quick actions (View, Copy, Cut, Delete)
+- **Image Keyboard Shortcuts**: Click to select an image, then use:
+  - Ctrl+C to copy
+  - Ctrl+X to cut
+  - Delete/Backspace to remove
+- **Double-click** on image to view in lightbox
+
+### Improved
+
+- **Quote Block Enhancement**: Quote button now creates removable blockquotes with delete button
+  - Hover to see delete button (✕)
+  - Press Enter twice at end of quote to escape to new paragraph
+  - Ctrl+Shift+Backspace to delete entire quote block
+- **Image Placement**: Clicking below images/quotes/code blocks now properly creates new paragraph
+- **Editor Padding**: Added extra padding at bottom of editor for easier editing after block elements
+
+### Fixed
+
+- Image resize wrapper no longer takes full width
+- Cursor can now be placed after images at end of notes
+
 ## [1.0.24] - 2026-02-10
 
 ### Added
