@@ -1247,6 +1247,135 @@
         <div id="helpPanel" class="tab-panel">
           <section class="help-section">
             <div class="help-container">
+              <!-- About the App -->
+              <div class="help-hero">
+                <div class="help-hero-icon">🚀</div>
+                <h1 class="help-hero-title">Work Launcher</h1>
+                <p class="help-hero-subtitle">
+                  Your Personal Productivity Automation Tool
+                </p>
+              </div>
+
+              <div class="help-card help-card-featured">
+                <h2 class="help-title">
+                  <span class="help-icon">💡</span>
+                  What is Work Launcher?
+                </h2>
+                <div class="help-content">
+                  <p class="help-intro">
+                    <strong>Work Launcher</strong> is a powerful desktop
+                    application designed to streamline your daily workflow by
+                    automating the process of opening multiple applications at
+                    once. Whether you're starting your workday, switching
+                    between different projects, or managing various work
+                    contexts, Work Launcher eliminates the repetitive task of
+                    manually opening each application.
+                  </p>
+                </div>
+              </div>
+
+              <div class="help-card help-card-featured">
+                <h2 class="help-title">
+                  <span class="help-icon">🎯</span>
+                  What Problem Does It Solve?
+                </h2>
+                <div class="help-content">
+                  <div class="help-problem-list">
+                    <div class="help-problem-item">
+                      <div class="problem-icon">⏰</div>
+                      <div class="problem-content">
+                        <h4>Wasted Time Every Morning</h4>
+                        <p>
+                          Stop spending 5-10 minutes every morning clicking
+                          through shortcuts to open your work applications.
+                          Launch them all instantly with a single click.
+                        </p>
+                      </div>
+                    </div>
+                    <div class="help-problem-item">
+                      <div class="problem-icon">🔄</div>
+                      <div class="problem-content">
+                        <h4>Context Switching Chaos</h4>
+                        <p>
+                          Different projects require different tools. Work
+                          Launcher lets you create profiles for each work
+                          context - development, meetings, design, research -
+                          and switch between them effortlessly.
+                        </p>
+                      </div>
+                    </div>
+                    <div class="help-problem-item">
+                      <div class="problem-icon">🧠</div>
+                      <div class="problem-content">
+                        <h4>Mental Load & Forgotten Apps</h4>
+                        <p>
+                          Never forget to open that one essential app again.
+                          Your profiles remember exactly which applications you
+                          need, ensuring you always have the right tools ready.
+                        </p>
+                      </div>
+                    </div>
+                    <div class="help-problem-item">
+                      <div class="problem-icon">⚙️</div>
+                      <div class="problem-content">
+                        <h4>Complex Launch Sequences</h4>
+                        <p>
+                          Some workflows require specific startup orders or
+                          delays. Work Launcher handles complex launch
+                          sequences, browser profiles, and custom arguments
+                          automatically.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="help-card help-card-featured">
+                <h2 class="help-title">
+                  <span class="help-icon">✨</span>
+                  Key Features
+                </h2>
+                <div class="help-content">
+                  <div class="help-features-grid">
+                    <div class="feature-box">
+                      <div class="feature-icon">📋</div>
+                      <h4>Multiple Profiles</h4>
+                      <p>
+                        Create unlimited profiles for different work contexts
+                      </p>
+                    </div>
+                    <div class="feature-box">
+                      <div class="feature-icon">⏰</div>
+                      <h4>Scheduled Launch</h4>
+                      <p>Auto-start apps at specific times daily</p>
+                    </div>
+                    <div class="feature-box">
+                      <div class="feature-icon">🔗</div>
+                      <h4>URLs & Web Apps</h4>
+                      <p>Launch websites alongside desktop applications</p>
+                    </div>
+                    <div class="feature-box">
+                      <div class="feature-icon">📝</div>
+                      <h4>Built-in Notes</h4>
+                      <p>Rich text editor with tags, images, and code blocks</p>
+                    </div>
+                    <div class="feature-box">
+                      <div class="feature-icon">🎨</div>
+                      <h4>Chrome Profiles</h4>
+                      <p>
+                        Launch specific browser profiles for each work context
+                      </p>
+                    </div>
+                    <div class="feature-box">
+                      <div class="feature-icon">💾</div>
+                      <h4>Backup & Sync</h4>
+                      <p>Export/import settings across multiple machines</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- Application Usage -->
               <div class="help-card">
                 <h2 class="help-title">
@@ -1497,8 +1626,12 @@
                     </p>
                     <ul>
                       <li>
-                        <strong>Hover</strong> - Shows overlay buttons (View 👁️,
-                        Copy 📋, Delete 🗑️)
+                        <strong>Hover</strong> - Shows overlay buttons (Copy 📋,
+                        Delete 🗑️)
+                      </li>
+                      <li>
+                        <strong>Drag</strong> - Click and hold image to drag and
+                        reposition
                       </li>
                       <li>
                         <strong>Click</strong> - Select image for keyboard
@@ -1506,8 +1639,8 @@
                       </li>
                       <li><strong>Double-click</strong> - View in lightbox</li>
                       <li>
-                        <strong>Right-click</strong> - Context menu (View, Copy,
-                        Cut, Delete)
+                        <strong>Right-click</strong> - Context menu (Copy, Cut,
+                        Delete)
                       </li>
                       <li><strong>Drag corner</strong> - Resize image</li>
                     </ul>
@@ -1831,6 +1964,7 @@
           >
             ↺
           </button>
+          <span class="lightbox-hint">🖱️ Click and drag to pan</span>
         </div>
         <div class="lightbox-image-container" id="lightboxImageContainer">
           <img id="lightboxImage" src="" alt="Preview" />

@@ -2234,13 +2234,31 @@ priorityTagsMenu.addEventListener("click", (e) => {
   if (selection.rangeCount > 0) {
     const range = selection.getRangeAt(0);
     range.deleteContents();
-    range.insertNode(tag);
 
-    // Add a space after the tag
-    const space = document.createTextNode(" ");
+    // Check if we need to add a space before
+    const needsSpaceBefore =
+      range.startContainer.nodeType === Node.TEXT_NODE &&
+      range.startOffset > 0 &&
+      range.startContainer.textContent[range.startOffset - 1] !== " ";
+
+    if (
+      needsSpaceBefore ||
+      (range.startContainer.nodeType === Node.ELEMENT_NODE &&
+        range.startOffset === 0)
+    ) {
+      const spaceBefore = document.createTextNode(" ");
+      range.insertNode(spaceBefore);
+      range.setStartAfter(spaceBefore);
+    }
+
+    // Insert the tag
+    range.insertNode(tag);
     range.setStartAfter(tag);
-    range.insertNode(space);
-    range.setStartAfter(space);
+
+    // Always add a space after the tag to ensure cursor can be placed after it
+    const spaceAfter = document.createTextNode(" ");
+    range.insertNode(spaceAfter);
+    range.setStartAfter(spaceAfter);
     range.collapse(true);
     selection.removeAllRanges();
     selection.addRange(range);
@@ -2350,10 +2368,26 @@ const ZOOM_MIN = 25;
 const ZOOM_MAX = 400;
 const ZOOM_STEP = 25;
 
+// Pan/drag variables
+let isPanning = false;
+let panStartX = 0;
+let panStartY = 0;
+let panOffsetX = 0;
+let panOffsetY = 0;
+
 // Update zoom level display
 function updateZoomDisplay() {
   zoomLevelDisplay.textContent = currentZoom + "%";
-  lightboxImage.style.transform = `scale(${currentZoom / 100})`;
+  updateImageTransform();
+}
+
+// Update image transform (zoom + pan)
+function updateImageTransform() {
+  const scale = currentZoom / 100;
+  lightboxImage.style.transform = `translate(${panOffsetX}px, ${panOffsetY}px) scale(${scale})`;
+
+  // Update cursor
+  lightboxImage.style.cursor = isPanning ? "grabbing" : "grab";
 }
 
 // Zoom in
@@ -2375,13 +2409,17 @@ function zoomOut() {
 // Reset zoom
 function resetZoom() {
   currentZoom = 100;
+  panOffsetX = 0;
+  panOffsetY = 0;
   updateZoomDisplay();
 }
 
 // Function to open image in lightbox
 function openImageInLightbox(imgSrc) {
-  // Reset zoom when opening
+  // Reset zoom and pan when opening
   currentZoom = 100;
+  panOffsetX = 0;
+  panOffsetY = 0;
   updateZoomDisplay();
   lightboxImage.src = imgSrc;
   imageLightbox.classList.remove("hidden");
@@ -2474,8 +2512,10 @@ function closeImageLightbox() {
   imageLightbox.classList.add("hidden");
   lightboxImage.src = "";
   document.body.style.overflow = ""; // Restore scroll
-  // Reset zoom
+  // Reset zoom and pan
   currentZoom = 100;
+  panOffsetX = 0;
+  panOffsetY = 0;
   updateZoomDisplay();
 }
 
@@ -2497,6 +2537,31 @@ lightboxImageContainer.addEventListener("wheel", (e) => {
     zoomIn();
   } else {
     zoomOut();
+  }
+});
+
+// Pan/drag functionality for images
+lightboxImage.addEventListener("mousedown", (e) => {
+  e.preventDefault();
+  isPanning = true;
+  panStartX = e.clientX - panOffsetX;
+  panStartY = e.clientY - panOffsetY;
+  updateImageTransform();
+});
+
+document.addEventListener("mousemove", (e) => {
+  if (isPanning) {
+    e.preventDefault();
+    panOffsetX = e.clientX - panStartX;
+    panOffsetY = e.clientY - panStartY;
+    updateImageTransform();
+  }
+});
+
+document.addEventListener("mouseup", (e) => {
+  if (isPanning) {
+    isPanning = false;
+    updateImageTransform();
   }
 });
 
@@ -2549,6 +2614,12 @@ function wrapImagesWithResizeHandles() {
       handle.parentNode.replaceChild(newHandle, handle);
       newHandle.addEventListener("mousedown", startResize);
 
+      // Setup drag handlers if not already set
+      if (!parent.hasAttribute("data-drag-setup")) {
+        parent.setAttribute("data-drag-setup", "true");
+        setupImageDragAndDrop(parent);
+      }
+
       img.classList.add("wrapped");
       return;
     }
@@ -2562,6 +2633,12 @@ function wrapImagesWithResizeHandles() {
     const handle = document.createElement("span");
     handle.className = "img-resize-handle";
 
+    // Prevent resize handle from initiating drag
+    handle.addEventListener("dragstart", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
     // Create overlay with buttons
     const overlay = createImageOverlay(img, wrapper);
 
@@ -2574,49 +2651,54 @@ function wrapImagesWithResizeHandles() {
 
     // Add resize event listeners to handle
     handle.addEventListener("mousedown", startResize);
+
+    // Add drag event listeners for moving images
+    setupImageDragAndDrop(wrapper);
   });
 }
 
-// Create image overlay with view/delete buttons
+// Create image overlay with copy/delete buttons
 function createImageOverlay(img, wrapper) {
   const overlay = document.createElement("div");
   overlay.className = "img-overlay";
   overlay.contentEditable = "false";
 
-  // View button
-  const viewBtn = document.createElement("button");
-  viewBtn.className = "img-overlay-btn img-view-btn";
-  viewBtn.innerHTML = "👁️";
-  viewBtn.title = "View image";
-  viewBtn.onclick = (e) => {
+  // Prevent overlay from initiating drag
+  overlay.addEventListener("dragstart", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    openImageInLightbox(img.src);
-  };
+  });
 
   // Copy button
   const copyBtn = document.createElement("button");
   copyBtn.className = "img-overlay-btn img-copy-btn";
   copyBtn.innerHTML = "📋";
   copyBtn.title = "Copy image";
-  copyBtn.onclick = (e) => {
+  copyBtn.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  copyBtn.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
     copyImageToClipboard(img);
-  };
+  });
 
   // Delete button
   const deleteBtn = document.createElement("button");
   deleteBtn.className = "img-overlay-btn img-delete-btn";
   deleteBtn.innerHTML = "🗑️";
   deleteBtn.title = "Delete image";
-  deleteBtn.onclick = (e) => {
+  deleteBtn.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  deleteBtn.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
     deleteImage(wrapper);
-  };
+  });
 
-  overlay.appendChild(viewBtn);
   overlay.appendChild(copyBtn);
   overlay.appendChild(deleteBtn);
 
@@ -2682,7 +2764,6 @@ function selectImage(img) {
 const imageContextMenu = document.createElement("div");
 imageContextMenu.className = "image-context-menu";
 imageContextMenu.innerHTML = `
-  <button class="context-menu-item" data-action="view">👁️ View</button>
   <button class="context-menu-item" data-action="copy">📋 Copy</button>
   <button class="context-menu-item" data-action="cut">✂️ Cut</button>
   <div class="context-menu-divider"></div>
@@ -2717,9 +2798,6 @@ imageContextMenu.addEventListener("click", async (e) => {
   if (!action || !contextMenuTargetImg) return;
 
   switch (action) {
-    case "view":
-      openImageInLightbox(contextMenuTargetImg.src);
-      break;
     case "copy":
       await copyImageToClipboard(contextMenuTargetImg);
       break;
@@ -2863,6 +2941,126 @@ function stopResize() {
   notesSaveStatus.classList.add("saving");
   clearTimeout(notesDebounceTimer);
   notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+}
+
+// Image drag and drop for repositioning
+let draggedImageWrapper = null;
+
+function setupImageDragAndDrop(wrapper) {
+  const img = wrapper.querySelector("img");
+
+  // Make img draggable to initiate drag from the image itself
+  if (img) {
+    img.draggable = true;
+    img.addEventListener("dragstart", (e) => {
+      // Don't allow drag if resizing or clicking buttons
+      if (isResizing) {
+        e.preventDefault();
+        return;
+      }
+      e.stopPropagation();
+      draggedImageWrapper = wrapper;
+      wrapper.style.opacity = "0.5";
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", "image");
+    });
+
+    img.addEventListener("dragend", (e) => {
+      wrapper.style.opacity = "1";
+      draggedImageWrapper = null;
+      // Remove any drop indicators
+      document
+        .querySelectorAll(".img-resize-wrapper.drag-over")
+        .forEach((w) => {
+          w.classList.remove("drag-over");
+        });
+      noteEditor.classList.remove("drag-over");
+    });
+  }
+
+  wrapper.addEventListener("dragover", (e) => {
+    if (draggedImageWrapper && draggedImageWrapper !== wrapper) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = "move";
+      wrapper.classList.add("drag-over");
+      return false;
+    }
+  });
+
+  wrapper.addEventListener("dragleave", (e) => {
+    // Only remove if actually leaving the wrapper
+    if (!wrapper.contains(e.relatedTarget)) {
+      wrapper.classList.remove("drag-over");
+    }
+  });
+
+  wrapper.addEventListener("drop", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    wrapper.classList.remove("drag-over");
+
+    if (draggedImageWrapper && draggedImageWrapper !== wrapper) {
+      // Get the position to insert
+      const rect = wrapper.getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+
+      // Insert before or after based on drop position
+      if (e.clientY < midpoint) {
+        wrapper.parentNode.insertBefore(draggedImageWrapper, wrapper);
+      } else {
+        wrapper.parentNode.insertBefore(
+          draggedImageWrapper,
+          wrapper.nextSibling,
+        );
+      }
+
+      // Save after moving
+      notesSaveStatus.textContent = "Saving...";
+      notesSaveStatus.classList.add("saving");
+      clearTimeout(notesDebounceTimer);
+      notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+
+      showNotification("Image moved");
+    }
+  });
+}
+
+// Setup noteEditor as a drop zone for images
+if (noteEditor) {
+  noteEditor.addEventListener("dragover", (e) => {
+    if (draggedImageWrapper) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      return false;
+    }
+  });
+
+  noteEditor.addEventListener("drop", (e) => {
+    if (draggedImageWrapper) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // If dropping in empty space, append to end
+      const target = e.target;
+      if (
+        target === noteEditor ||
+        (target.closest(".note-editor") &&
+          !target.closest(".img-resize-wrapper"))
+      ) {
+        noteEditor.appendChild(draggedImageWrapper);
+
+        // Save after moving
+        notesSaveStatus.textContent = "Saving...";
+        notesSaveStatus.classList.add("saving");
+        clearTimeout(notesDebounceTimer);
+        notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+
+        showNotification("Image moved");
+      }
+    }
+  });
 }
 
 // ========== End Image Lightbox Feature ==========

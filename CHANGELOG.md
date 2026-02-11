@@ -2,6 +2,61 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
+## [1.0.27] - 2026-02-11
+
+### Added
+
+- **Help Section Redesign**: Complete overhaul of the Help tab with professional design
+  - Hero section with animated icon and gradient title
+  - "What is Work Launcher?" introduction explaining the app's purpose
+  - "What Problem Does It Solve?" section highlighting 4 key pain points:
+    - ⏰ Wasted Time Every Morning
+    - 🔄 Context Switching Chaos
+    - 🧠 Mental Load & Forgotten Apps
+    - ⚙️ Complex Launch Sequences
+  - "Key Features" grid showcasing 6 main features
+  - Improved visual design with hover effects, gradients, and better spacing
+  - Full theme support (dark and light modes)
+- **Image Drag & Drop in Notes**: Images can now be reordered by dragging
+  - Click and hold on any image to drag it to a new position
+  - Drop on another image to insert before/after
+  - Drop in empty space to move to end
+  - Visual feedback with dashed outline on drop zones
+- **Lightbox Pan/Drag**: Images in fullscreen view are now pannable
+  - Click and drag to move the image around at any zoom level
+  - Smooth panning with proper offset tracking
+  - Cursor changes to grab/grabbing during interaction
+  - Reset button now resets both zoom and pan position
+
+### Improved
+
+- **Priority Tag Cursor Positioning**: Tags now have proper spacing to allow cursor placement beside them
+  - Smart spacing before tags (only adds if needed)
+  - Always adds space after tags for better editing
+  - Fixed issue where cursor couldn't be positioned next to tags
+- **Lightbox Viewport**: Image viewer now uses full window dimensions
+  - Expanded from 90vw/95vh to 100% viewport usage
+  - Images fit perfectly at 100% zoom
+  - Better space utilization for large images
+- **Image Overlay Buttons**: Fixed event handling for better reliability
+  - Changed from `onclick` to `addEventListener`
+  - Added mousedown event prevention to avoid conflicts
+  - Buttons now work consistently in edit mode
+- **Image Help Documentation**: Updated to reflect new drag functionality
+
+### Removed
+
+- **Image View Button**: Removed eye icon (👁️) from image overlay
+  - Simplified to Copy and Delete buttons only
+  - Double-click to view in lightbox still available
+  - Removed view option from right-click context menu
+
+### Fixed
+
+- Image overlay buttons now respond properly to clicks in edit mode
+- Image dragging no longer interferes with resize handles or overlay buttons
+- Priority tags no longer block cursor positioning in notes editor
+
 ## [1.0.26] - 2026-02-10
 
 
