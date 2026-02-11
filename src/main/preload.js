@@ -105,6 +105,35 @@ contextBridge.exposeInMainWorld("electronAPI", {
   updateNotePriority: (id, priority) =>
     ipcRenderer.invoke("update-note-priority", { id, priority }),
 
+  // Jira integration
+  getJiraConfig: () => ipcRenderer.invoke("get-jira-config"),
+  saveJiraConfig: (config) => ipcRenderer.invoke("save-jira-config", config),
+  jiraTestConnection: (config) =>
+    ipcRenderer.invoke("jira-test-connection", config),
+  jiraGetProjects: (config) => ipcRenderer.invoke("jira-get-projects", config),
+  jiraGetProject: (config, projectKey) =>
+    ipcRenderer.invoke("jira-get-project", config, projectKey),
+  jiraGetUsers: (config, projectKey) =>
+    ipcRenderer.invoke("jira-get-users", config, projectKey),
+  jiraGetSprints: (config, projectKey) =>
+    ipcRenderer.invoke("jira-get-sprints", config, projectKey),
+  jiraGetEpics: (config, projectKey) =>
+    ipcRenderer.invoke("jira-get-epics", config, projectKey),
+  jiraCreateIssue: (config, issueData) =>
+    ipcRenderer.invoke("jira-create-issue", config, issueData),
+  jiraGetIssue: (config, issueKey) =>
+    ipcRenderer.invoke("jira-get-issue", config, issueKey),
+  jiraUploadAttachment: (config, issueKey, imageData, filename) =>
+    ipcRenderer.invoke(
+      "jira-upload-attachment",
+      config,
+      issueKey,
+      imageData,
+      filename,
+    ),
+  jiraAddToSprint: (config, sprintId, issueKey) =>
+    ipcRenderer.invoke("jira-add-to-sprint", config, sprintId, issueKey),
+
   // Quit app
   quitApp: () => ipcRenderer.invoke("quit-app"),
 

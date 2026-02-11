@@ -3931,5 +3931,1973 @@ document
     });
   });
 
+// ========== Jira Integration ==========
+
+// Jira DOM Elements
+const jiraServerUrl = document.getElementById("jiraServerUrl");
+const jiraEmail = document.getElementById("jiraEmail");
+const jiraApiToken = document.getElementById("jiraApiToken");
+const toggleJiraToken = document.getElementById("toggleJiraToken");
+const testJiraConnectionBtn = document.getElementById("testJiraConnectionBtn");
+const saveJiraConfigBtn = document.getElementById("saveJiraConfigBtn");
+const jiraConnectionStatus = document.getElementById("jiraConnectionStatus");
+const jiraHelpLink = document.getElementById("jiraHelpLink");
+const jiraTokenHint = document.getElementById("jiraTokenHint");
+const createTokenLink = document.getElementById("createTokenLink");
+const createJiraIssueBtn = document.getElementById("createJiraIssueBtn");
+const linkJiraIssueBtn = document.getElementById("linkJiraIssueBtn");
+const linkJiraIssueModal = document.getElementById("linkJiraIssueModal");
+const closeLinkJiraModalBtn = document.getElementById("closeLinkJiraModalBtn");
+const cancelLinkJiraBtn = document.getElementById("cancelLinkJiraBtn");
+const confirmLinkJiraBtn = document.getElementById("confirmLinkJiraBtn");
+const linkJiraIssueKey = document.getElementById("linkJiraIssueKey");
+const linkJiraModalError = document.getElementById("linkJiraModalError");
+const linkJiraPreview = document.getElementById("linkJiraPreview");
+const previewIssueKey = document.getElementById("previewIssueKey");
+const previewIssueSummary = document.getElementById("previewIssueSummary");
+const previewIssueType = document.getElementById("previewIssueType");
+const previewIssueStatus = document.getElementById("previewIssueStatus");
+const createJiraIssueModal = document.getElementById("createJiraIssueModal");
+const closeJiraModalBtn = document.getElementById("closeJiraModalBtn");
+const cancelJiraBtn = document.getElementById("cancelJiraBtn");
+const confirmJiraBtn = document.getElementById("confirmJiraBtn");
+const jiraHelpModal = document.getElementById("jiraHelpModal");
+const closeJiraHelpModalBtn = document.getElementById("closeJiraHelpModalBtn");
+const closeJiraHelpBtn = document.getElementById("closeJiraHelpBtn");
+const jiraModalError = document.getElementById("jiraModalError");
+
+// Jira form fields
+const jiraProject = document.getElementById("jiraProject");
+const jiraIssueType = document.getElementById("jiraIssueType");
+const jiraSummary = document.getElementById("jiraSummary");
+const jiraDescription = document.getElementById("jiraDescription");
+const jiraPriority = document.getElementById("jiraPriority");
+const jiraAssignee = document.getElementById("jiraAssignee");
+const jiraLabels = document.getElementById("jiraLabels");
+const jiraEpic = document.getElementById("jiraEpic");
+const jiraSprint = document.getElementById("jiraSprint");
+const jiraStoryPoints = document.getElementById("jiraStoryPoints");
+const insertJiraLink = document.getElementById("insertJiraLink");
+
+// Bug-specific fields
+const jiraBugFields = document.getElementById("jiraBugFields");
+const jiraStepsToReproduce = document.getElementById("jiraStepsToReproduce");
+const jiraExpectedResult = document.getElementById("jiraExpectedResult");
+const jiraActualResult = document.getElementById("jiraActualResult");
+const jiraEnvironment = document.getElementById("jiraEnvironment");
+
+// Attachment preview elements
+const jiraAttachmentsSection = document.getElementById(
+  "jiraAttachmentsSection",
+);
+const jiraAttachmentsPreview = document.getElementById(
+  "jiraAttachmentsPreview",
+);
+const jiraAttachmentCount = document.getElementById("jiraAttachmentCount");
+const jiraAttachFileBtn = document.getElementById("jiraAttachFileBtn");
+const jiraFileInput = document.getElementById("jiraFileInput");
+const jiraNoAttachments = document.getElementById("jiraNoAttachments");
+
+// Searchable dropdown elements
+const jiraProjectSearch = document.getElementById("jiraProjectSearch");
+const jiraProjectList = document.getElementById("jiraProjectList");
+const jiraIssueTypeSearch = document.getElementById("jiraIssueTypeSearch");
+const jiraIssueTypeList = document.getElementById("jiraIssueTypeList");
+const jiraPrioritySearch = document.getElementById("jiraPrioritySearch");
+const jiraPriorityList = document.getElementById("jiraPriorityList");
+const jiraAssigneeSearch = document.getElementById("jiraAssigneeSearch");
+const jiraAssigneeList = document.getElementById("jiraAssigneeList");
+const jiraEpicSearch = document.getElementById("jiraEpicSearch");
+const jiraEpicList = document.getElementById("jiraEpicList");
+const jiraSprintSearch = document.getElementById("jiraSprintSearch");
+const jiraSprintList = document.getElementById("jiraSprintList");
+
+// Jira state
+let jiraConfig = {};
+let jiraProjects = [];
+let jiraUsers = [];
+let selectedText = "";
+let selectedImages = []; // Store images from selection for Jira upload
+let savedSelectionRange = null; // Store selection range for link insertion
+
+// Helper to extract selection content including images
+function getSelectionWithImages() {
+  const selection = window.getSelection();
+  if (!selection.rangeCount) return { text: "", html: "", images: [] };
+
+  const range = selection.getRangeAt(0);
+  const container = document.createElement("div");
+  container.appendChild(range.cloneContents());
+
+  const images = [];
+
+  // Remove image overlay buttons from the cloned content
+  container
+    .querySelectorAll(".img-overlay, .img-resize-handle")
+    .forEach((el) => el.remove());
+
+  // Also handle img-resize-wrapper elements
+  container.querySelectorAll(".img-resize-wrapper").forEach((wrapper) => {
+    const img = wrapper.querySelector("img");
+    if (img) {
+      wrapper.parentNode.insertBefore(img, wrapper);
+    }
+    wrapper.remove();
+  });
+
+  const imgs = container.querySelectorAll("img");
+  imgs.forEach((img, index) => {
+    const src = img.src;
+    console.log(
+      `[Image Selection] Found image ${index}: src starts with "${src.substring(0, 50)}..."`,
+    );
+    console.log(`[Image Selection] Full src length: ${src.length}`);
+
+    if (src.startsWith("data:image/")) {
+      // Extract image type from data URL
+      const typeMatch = src.match(/^data:image\/(\w+)/);
+      const imageType = typeMatch ? typeMatch[1] : "png";
+      const filename = `image_${Date.now()}_${index}.${imageType}`;
+      console.log(
+        `[Image Selection] Adding image: ${filename}, data length: ${src.length}`,
+      );
+      images.push({ data: src, filename });
+      // Replace image with placeholder in text
+      img.replaceWith(`[Image: ${filename}]`);
+    } else {
+      console.log(
+        `[Image Selection] Skipping non-data-URL image: ${src.substring(0, 100)}`,
+      );
+    }
+  });
+
+  // Get text content (with image placeholders)
+  let text = container.textContent.trim();
+  // Clean up any remaining overlay button text (👁️📋🗑️)
+  text = text.replace(/[👁️📋🗑️✂️]+/g, "").trim();
+
+  const html = container.innerHTML;
+
+  console.log(
+    `Selection: ${images.length} images, text: "${text.substring(0, 100)}..."`,
+  );
+  return { text, html, images };
+}
+
+// Update attachment preview in modal
+function updateAttachmentPreview() {
+  if (!jiraAttachmentsPreview) return;
+
+  if (selectedImages.length === 0) {
+    jiraAttachmentCount.textContent = "";
+    jiraAttachmentsPreview.innerHTML =
+      '<div class="jira-no-attachments">No attachments. Select text with images or click "Attach Files" to add.</div>';
+    return;
+  }
+
+  jiraAttachmentCount.textContent = `(${selectedImages.length})`;
+
+  jiraAttachmentsPreview.innerHTML = selectedImages
+    .map((img, index) => {
+      // Check if it's an image or other file type
+      const isImage = img.data && img.data.startsWith("data:image/");
+      const fileIcon = getFileIcon(img.filename);
+
+      if (isImage) {
+        return `
+          <div class="jira-attachment-item" data-index="${index}">
+            <img src="${img.data}" alt="${img.filename}" />
+            <button class="remove-attachment" title="Remove" onclick="removeJiraAttachment(${index})">×</button>
+            <div class="jira-attachment-filename">${img.filename}</div>
+          </div>
+        `;
+      } else {
+        return `
+          <div class="jira-attachment-item jira-attachment-file" data-index="${index}">
+            <div class="jira-file-icon">${fileIcon}</div>
+            <button class="remove-attachment" title="Remove" onclick="removeJiraAttachment(${index})">×</button>
+            <div class="jira-attachment-filename">${img.filename}</div>
+          </div>
+        `;
+      }
+    })
+    .join("");
+}
+
+// Get file icon based on extension
+function getFileIcon(filename) {
+  const ext = filename.split(".").pop().toLowerCase();
+  const icons = {
+    pdf: "📄",
+    doc: "📝",
+    docx: "📝",
+    xls: "📊",
+    xlsx: "📊",
+    txt: "📃",
+    zip: "📦",
+    rar: "📦",
+    "7z": "📦",
+  };
+  return icons[ext] || "📎";
+}
+
+// Handle file attachment button click
+if (jiraAttachFileBtn && jiraFileInput) {
+  jiraAttachFileBtn.addEventListener("click", () => {
+    jiraFileInput.click();
+  });
+
+  jiraFileInput.addEventListener("change", async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    for (const file of files) {
+      try {
+        const data = await fileToBase64(file);
+        selectedImages.push({
+          data: data,
+          filename: file.name,
+        });
+      } catch (error) {
+        console.error(`Failed to read file ${file.name}:`, error);
+      }
+    }
+
+    updateAttachmentPreview();
+    // Reset file input so same file can be selected again
+    jiraFileInput.value = "";
+  });
+}
+
+// Convert file to base64 data URL
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// Remove attachment from list
+window.removeJiraAttachment = function (index) {
+  selectedImages.splice(index, 1);
+  updateAttachmentPreview();
+  // Update description text
+  if (selectedImages.length > 0) {
+    const descText = jiraDescription.value.replace(
+      /\n\n---\n📎 \d+ (image|attachment)\(s\) will be attached/,
+      `\n\n---\n📎 ${selectedImages.length} attachment(s) will be attached`,
+    );
+    jiraDescription.value = descText;
+  } else {
+    jiraDescription.value = jiraDescription.value.replace(
+      /\n\n---\n📎 \d+ (image|attachment)\(s\) will be attached/,
+      "",
+    );
+  }
+};
+
+// Convert selection HTML to markdown for description
+function htmlToMarkdown(html) {
+  if (!html) return "";
+
+  const container = document.createElement("div");
+  container.innerHTML = html;
+
+  let markdown = "";
+
+  function processNode(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.textContent;
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) return "";
+
+    const tag = node.tagName.toLowerCase();
+    let content = "";
+
+    // Process children first
+    for (const child of node.childNodes) {
+      content += processNode(child);
+    }
+
+    switch (tag) {
+      case "b":
+      case "strong":
+        return `**${content}**`;
+      case "i":
+      case "em":
+        return `*${content}*`;
+      case "u":
+        return content; // No underline in Jira markdown
+      case "code":
+        return `\`${content}\``;
+      case "pre":
+        return `\n\`\`\`\n${content}\n\`\`\`\n`;
+      case "h1":
+        return `\n# ${content}\n`;
+      case "h2":
+        return `\n## ${content}\n`;
+      case "h3":
+        return `\n### ${content}\n`;
+      case "h4":
+      case "h5":
+      case "h6":
+        return `\n#### ${content}\n`;
+      case "p":
+        return `\n${content}\n`;
+      case "br":
+        return "\n";
+      case "ul":
+        return `\n${content}`;
+      case "ol":
+        return `\n${content}`;
+      case "li":
+        const parent = node.parentElement;
+        if (parent && parent.tagName.toLowerCase() === "ol") {
+          return `1. ${content}\n`;
+        }
+        return `- ${content}\n`;
+      case "a":
+        const href = node.getAttribute("href");
+        return href ? `[${content}](${href})` : content;
+      case "img":
+        // Images will be handled separately as attachments
+        const src = node.getAttribute("src");
+        if (src && src.startsWith("data:image/")) {
+          return "[Attached Image]";
+        }
+        return `![image](${src || ""})`;
+      case "blockquote":
+        return content
+          .split("\n")
+          .map((line) => `> ${line}`)
+          .join("\n");
+      case "div":
+      case "span":
+      default:
+        return content;
+    }
+  }
+
+  markdown = processNode(container);
+
+  // Clean up extra newlines
+  markdown = markdown.replace(/\n{3,}/g, "\n\n").trim();
+
+  return markdown;
+}
+
+// ===== Searchable Dropdown Implementation =====
+class SearchableDropdown {
+  constructor(searchInput, select, dropdown, options = {}) {
+    this.searchInput = searchInput;
+    this.select = select;
+    this.dropdown = dropdown;
+    this.options = options;
+    this.items = [];
+    this.selectedValue = "";
+    this.highlightedIndex = -1;
+
+    if (this.searchInput && this.dropdown) {
+      this.init();
+    }
+  }
+
+  init() {
+    const wrapper = this.searchInput.closest(".jira-searchable-select");
+
+    // Focus/click opens dropdown
+    this.searchInput.addEventListener("focus", () => this.open());
+    this.searchInput.addEventListener("click", () => this.open());
+
+    // Input filtering
+    this.searchInput.addEventListener("input", () => this.filter());
+
+    // Keyboard navigation
+    this.searchInput.addEventListener("keydown", (e) => this.handleKeydown(e));
+
+    // Close on click outside
+    document.addEventListener("click", (e) => {
+      if (!wrapper.contains(e.target)) {
+        this.close();
+      }
+    });
+  }
+
+  setItems(items) {
+    this.items = items;
+    this.render();
+  }
+
+  render(filteredItems = null) {
+    const itemsToRender = filteredItems || this.items;
+
+    if (itemsToRender.length === 0) {
+      this.dropdown.innerHTML =
+        '<div class="jira-dropdown-empty">No results found</div>';
+      return;
+    }
+
+    this.dropdown.innerHTML = itemsToRender
+      .map(
+        (item, index) => `
+      <div class="jira-dropdown-item ${item.value === this.selectedValue ? "selected" : ""}" 
+           data-value="${item.value}" 
+           data-index="${index}">
+        ${item.icon ? `<span class="item-icon">${item.icon}</span>` : ""}${item.label}
+      </div>
+    `,
+      )
+      .join("");
+
+    // Add click handlers
+    this.dropdown.querySelectorAll(".jira-dropdown-item").forEach((el) => {
+      el.addEventListener("click", () => {
+        this.selectItem(el.dataset.value);
+      });
+    });
+  }
+
+  filter() {
+    const query = this.searchInput.value.toLowerCase();
+    const filtered = this.items.filter((item) =>
+      item.label.toLowerCase().includes(query),
+    );
+    this.render(filtered);
+    this.highlightedIndex = -1;
+  }
+
+  open() {
+    const wrapper = this.searchInput.closest(".jira-searchable-select");
+    wrapper.classList.add("open");
+    this.dropdown.classList.remove("hidden");
+    this.render();
+  }
+
+  close() {
+    const wrapper = this.searchInput.closest(".jira-searchable-select");
+    wrapper.classList.remove("open");
+    this.dropdown.classList.add("hidden");
+    this.highlightedIndex = -1;
+  }
+
+  selectItem(value) {
+    const item = this.items.find((i) => i.value === value);
+    if (item) {
+      this.selectedValue = value;
+      this.searchInput.value = item.label;
+      this.select.value = value;
+
+      // Trigger change event
+      const event = new Event("change", { bubbles: true });
+      this.select.dispatchEvent(event);
+    }
+    this.close();
+  }
+
+  handleKeydown(e) {
+    const items = this.dropdown.querySelectorAll(".jira-dropdown-item");
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        this.highlightedIndex = Math.min(
+          this.highlightedIndex + 1,
+          items.length - 1,
+        );
+        this.updateHighlight(items);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        this.highlightedIndex = Math.max(this.highlightedIndex - 1, 0);
+        this.updateHighlight(items);
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (this.highlightedIndex >= 0 && items[this.highlightedIndex]) {
+          this.selectItem(items[this.highlightedIndex].dataset.value);
+        }
+        break;
+      case "Escape":
+        this.close();
+        break;
+    }
+  }
+
+  updateHighlight(items) {
+    items.forEach((item, index) => {
+      item.classList.toggle("highlighted", index === this.highlightedIndex);
+    });
+    if (items[this.highlightedIndex]) {
+      items[this.highlightedIndex].scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  setValue(value) {
+    const item = this.items.find((i) => i.value === value);
+    if (item) {
+      this.selectedValue = value;
+      this.searchInput.value = item.label;
+      this.select.value = value;
+    }
+  }
+
+  reset() {
+    this.selectedValue = "";
+    this.searchInput.value = "";
+    this.items = [];
+    this.dropdown.innerHTML = "";
+  }
+}
+
+// ===== Markdown to ADF Converter =====
+function markdownToADF(markdown) {
+  if (!markdown || !markdown.trim()) return null;
+
+  const content = [];
+  const lines = markdown.split("\n");
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Code block
+    if (line.startsWith("```")) {
+      const language = line.slice(3).trim() || "plain";
+      const codeLines = [];
+      i++;
+      while (i < lines.length && !lines[i].startsWith("```")) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      content.push({
+        type: "codeBlock",
+        attrs: { language },
+        content: [{ type: "text", text: codeLines.join("\n") }],
+      });
+      i++;
+      continue;
+    }
+
+    // Heading
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+    if (headingMatch) {
+      content.push({
+        type: "heading",
+        attrs: { level: headingMatch[1].length },
+        content: parseInlineMarkdown(headingMatch[2]),
+      });
+      i++;
+      continue;
+    }
+
+    // Bullet list
+    if (line.match(/^[\-\*]\s+.+$/)) {
+      const listItems = [];
+      while (i < lines.length && lines[i].match(/^[\-\*]\s+.+$/)) {
+        const itemText = lines[i].replace(/^[\-\*]\s+/, "");
+        listItems.push({
+          type: "listItem",
+          content: [
+            {
+              type: "paragraph",
+              content: parseInlineMarkdown(itemText),
+            },
+          ],
+        });
+        i++;
+      }
+      content.push({ type: "bulletList", content: listItems });
+      continue;
+    }
+
+    // Numbered list
+    if (line.match(/^\d+\.\s+.+$/)) {
+      const listItems = [];
+      while (i < lines.length && lines[i].match(/^\d+\.\s+.+$/)) {
+        const itemText = lines[i].replace(/^\d+\.\s+/, "");
+        listItems.push({
+          type: "listItem",
+          content: [
+            {
+              type: "paragraph",
+              content: parseInlineMarkdown(itemText),
+            },
+          ],
+        });
+        i++;
+      }
+      content.push({ type: "orderedList", content: listItems });
+      continue;
+    }
+
+    // Horizontal rule
+    if (line.match(/^---+$/)) {
+      content.push({ type: "rule" });
+      i++;
+      continue;
+    }
+
+    // Empty line
+    if (!line.trim()) {
+      i++;
+      continue;
+    }
+
+    // Regular paragraph
+    content.push({
+      type: "paragraph",
+      content: parseInlineMarkdown(line),
+    });
+    i++;
+  }
+
+  return {
+    type: "doc",
+    version: 1,
+    content:
+      content.length > 0 ? content : [{ type: "paragraph", content: [] }],
+  };
+}
+
+function parseInlineMarkdown(text) {
+  const result = [];
+  let remaining = text;
+
+  while (remaining.length > 0) {
+    // Bold **text** or __text__
+    let match = remaining.match(/^(.*?)\*\*(.+?)\*\*(.*)$/s);
+    if (!match) match = remaining.match(/^(.*?)__(.+?)__(.*)$/s);
+    if (match && match[1] !== undefined) {
+      if (match[1]) {
+        result.push(...parseInlineMarkdown(match[1]));
+      }
+      const boldContent = parseInlineMarkdown(match[2]);
+      boldContent.forEach((node) => {
+        node.marks = [...(node.marks || []), { type: "strong" }];
+      });
+      result.push(...boldContent);
+      remaining = match[3];
+      continue;
+    }
+
+    // Italic *text* or _text_ (but not inside words)
+    match = remaining.match(/^(.*?)\*([^*]+?)\*(.*)$/s);
+    if (!match)
+      match = remaining.match(
+        /^(.*?)(?:^|[^a-zA-Z])_([^_]+?)_(?:[^a-zA-Z]|$)(.*)$/s,
+      );
+    if (match && match[1] !== undefined && !remaining.match(/^\*\*/)) {
+      if (match[1]) {
+        result.push(...parseInlineMarkdown(match[1]));
+      }
+      const italicContent = parseInlineMarkdown(match[2]);
+      italicContent.forEach((node) => {
+        node.marks = [...(node.marks || []), { type: "em" }];
+      });
+      result.push(...italicContent);
+      remaining = match[3];
+      continue;
+    }
+
+    // Inline code `text`
+    match = remaining.match(/^(.*?)`([^`]+?)`(.*)$/s);
+    if (match && match[1] !== undefined) {
+      if (match[1]) {
+        result.push({ type: "text", text: match[1] });
+      }
+      result.push({
+        type: "text",
+        text: match[2],
+        marks: [{ type: "code" }],
+      });
+      remaining = match[3];
+      continue;
+    }
+
+    // Link [text](url)
+    match = remaining.match(/^(.*?)\[([^\]]+?)\]\(([^)]+?)\)(.*)$/s);
+    if (match && match[1] !== undefined) {
+      if (match[1]) {
+        result.push({ type: "text", text: match[1] });
+      }
+      result.push({
+        type: "text",
+        text: match[2],
+        marks: [{ type: "link", attrs: { href: match[3] } }],
+      });
+      remaining = match[4];
+      continue;
+    }
+
+    // Plain text
+    result.push({ type: "text", text: remaining });
+    break;
+  }
+
+  return result.filter((node) => node.text && node.text.length > 0);
+}
+
+// ===== Markdown Toolbar =====
+function initMarkdownToolbar() {
+  const toolbar = document.querySelector(".jira-markdown-toolbar");
+  if (!toolbar || !jiraDescription) return;
+
+  toolbar.addEventListener("click", (e) => {
+    const btn = e.target.closest(".jira-md-btn");
+    if (!btn) return;
+
+    const action = btn.dataset.md;
+    applyMarkdownFormat(action);
+  });
+
+  // Keyboard shortcuts
+  jiraDescription.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      switch (e.key.toLowerCase()) {
+        case "b":
+          e.preventDefault();
+          applyMarkdownFormat("bold");
+          break;
+        case "i":
+          e.preventDefault();
+          applyMarkdownFormat("italic");
+          break;
+      }
+    }
+  });
+}
+
+function applyMarkdownFormat(action) {
+  const textarea = jiraDescription;
+  if (!textarea) return;
+
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  const selected = text.substring(start, end);
+
+  let before = "",
+    after = "",
+    newText = "",
+    cursorOffset = 0;
+
+  switch (action) {
+    case "bold":
+      before = "**";
+      after = "**";
+      newText = selected || "bold text";
+      cursorOffset = selected ? 0 : -9;
+      break;
+    case "italic":
+      before = "*";
+      after = "*";
+      newText = selected || "italic text";
+      cursorOffset = selected ? 0 : -11;
+      break;
+    case "code":
+      before = "`";
+      after = "`";
+      newText = selected || "code";
+      cursorOffset = selected ? 0 : -4;
+      break;
+    case "heading":
+      // Add at line start
+      const lineStart = text.lastIndexOf("\n", start - 1) + 1;
+      textarea.value =
+        text.substring(0, lineStart) + "# " + text.substring(lineStart);
+      textarea.selectionStart = textarea.selectionEnd = start + 2;
+      textarea.focus();
+      return;
+    case "bullet":
+      const bulletLineStart = text.lastIndexOf("\n", start - 1) + 1;
+      textarea.value =
+        text.substring(0, bulletLineStart) +
+        "- " +
+        text.substring(bulletLineStart);
+      textarea.selectionStart = textarea.selectionEnd = start + 2;
+      textarea.focus();
+      return;
+    case "number":
+      const numLineStart = text.lastIndexOf("\n", start - 1) + 1;
+      textarea.value =
+        text.substring(0, numLineStart) + "1. " + text.substring(numLineStart);
+      textarea.selectionStart = textarea.selectionEnd = start + 3;
+      textarea.focus();
+      return;
+    case "codeblock":
+      before = "```\n";
+      after = "\n```";
+      newText = selected || "code here";
+      cursorOffset = selected ? 0 : -9;
+      break;
+    case "link":
+      before = "[";
+      after = "](url)";
+      newText = selected || "link text";
+      cursorOffset = selected ? -1 : -10;
+      break;
+    default:
+      return;
+  }
+
+  textarea.value =
+    text.substring(0, start) + before + newText + after + text.substring(end);
+  const newPos =
+    start + before.length + newText.length + after.length + cursorOffset;
+  textarea.selectionStart = selected ? start : start + before.length;
+  textarea.selectionEnd = selected
+    ? newPos
+    : start + before.length + newText.length;
+  textarea.focus();
+}
+
+// Initialize searchable dropdowns
+let projectDropdown,
+  issueTypeDropdown,
+  priorityDropdown,
+  assigneeDropdown,
+  epicDropdown,
+  sprintDropdown;
+
+function initSearchableDropdowns() {
+  if (jiraProjectSearch && jiraProject && jiraProjectList) {
+    projectDropdown = new SearchableDropdown(
+      jiraProjectSearch,
+      jiraProject,
+      jiraProjectList,
+    );
+  }
+  if (jiraIssueTypeSearch && jiraIssueType && jiraIssueTypeList) {
+    issueTypeDropdown = new SearchableDropdown(
+      jiraIssueTypeSearch,
+      jiraIssueType,
+      jiraIssueTypeList,
+    );
+  }
+  if (jiraPrioritySearch && jiraPriority && jiraPriorityList) {
+    priorityDropdown = new SearchableDropdown(
+      jiraPrioritySearch,
+      jiraPriority,
+      jiraPriorityList,
+    );
+    // Set priority items immediately
+    priorityDropdown.setItems([
+      { value: "", label: "None", icon: "" },
+      { value: "1", label: "Highest", icon: "🔴" },
+      { value: "2", label: "High", icon: "🟠" },
+      { value: "3", label: "Medium", icon: "🟡" },
+      { value: "4", label: "Low", icon: "🟢" },
+      { value: "5", label: "Lowest", icon: "⚪" },
+    ]);
+  }
+  if (jiraAssigneeSearch && jiraAssignee && jiraAssigneeList) {
+    assigneeDropdown = new SearchableDropdown(
+      jiraAssigneeSearch,
+      jiraAssignee,
+      jiraAssigneeList,
+    );
+  }
+  if (jiraSprintSearch && jiraSprint && jiraSprintList) {
+    sprintDropdown = new SearchableDropdown(
+      jiraSprintSearch,
+      jiraSprint,
+      jiraSprintList,
+    );
+  }
+  if (jiraEpicSearch && jiraEpic && jiraEpicList) {
+    epicDropdown = new SearchableDropdown(
+      jiraEpicSearch,
+      jiraEpic,
+      jiraEpicList,
+    );
+  }
+}
+
+// Initialize on DOM ready
+function initJiraUI() {
+  initSearchableDropdowns();
+  initMarkdownToolbar();
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initJiraUI);
+} else {
+  initJiraUI();
+}
+
+// Load Jira configuration
+async function loadJiraConfig() {
+  try {
+    const config = await window.electronAPI.getJiraConfig();
+    if (config) {
+      jiraConfig = config;
+      jiraServerUrl.value = config.serverUrl || "";
+      jiraEmail.value = config.email || "";
+      jiraApiToken.value = config.apiToken || "";
+      updateTokenHint();
+    }
+  } catch (error) {
+    console.error("Failed to load Jira config:", error);
+  }
+}
+
+// Update token hint and link based on server URL
+function updateTokenHint() {
+  const serverUrl = jiraServerUrl.value.trim();
+
+  if (serverUrl && jiraTokenHint && createTokenLink) {
+    // Determine the token creation URL based on Jira type
+    let tokenUrl;
+    if (serverUrl.includes("atlassian.net")) {
+      // Jira Cloud
+      tokenUrl = "https://id.atlassian.com/manage-profile/security/api-tokens";
+    } else {
+      // Jira Server/Data Center
+      tokenUrl = `${serverUrl}/secure/ViewProfile.jspa`;
+    }
+
+    createTokenLink.href = tokenUrl;
+    jiraTokenHint.classList.add("visible");
+  } else if (jiraTokenHint) {
+    jiraTokenHint.classList.remove("visible");
+  }
+}
+
+// Listen for server URL changes to update token hint
+if (jiraServerUrl) {
+  jiraServerUrl.addEventListener("input", updateTokenHint);
+  jiraServerUrl.addEventListener("blur", updateTokenHint);
+}
+
+// Open token creation link in external browser
+if (createTokenLink) {
+  createTokenLink.addEventListener("click", async (e) => {
+    e.preventDefault();
+    const url = createTokenLink.href;
+    if (url && url !== "#") {
+      try {
+        await window.electronAPI.openUrl(url);
+      } catch (error) {
+        console.error("Failed to open URL:", error);
+      }
+    }
+  });
+}
+
+// Save Jira configuration
+saveJiraConfigBtn.addEventListener("click", async () => {
+  const config = {
+    serverUrl: jiraServerUrl.value.trim(),
+    email: jiraEmail.value.trim(),
+    apiToken: jiraApiToken.value.trim(),
+  };
+
+  if (!config.serverUrl || !config.email || !config.apiToken) {
+    showNotification("Please fill in all required fields", "error");
+    return;
+  }
+
+  try {
+    await window.electronAPI.saveJiraConfig(config);
+    jiraConfig = config;
+    showNotification("Jira configuration saved successfully");
+  } catch (error) {
+    showNotification("Failed to save Jira configuration", "error");
+  }
+});
+
+// Toggle API token visibility
+toggleJiraToken.addEventListener("click", () => {
+  const type = jiraApiToken.type === "password" ? "text" : "password";
+  jiraApiToken.type = type;
+  toggleJiraToken.textContent = type === "password" ? "👁️" : "🙈";
+});
+
+// Test Jira connection
+testJiraConnectionBtn.addEventListener("click", async () => {
+  const config = {
+    serverUrl: jiraServerUrl.value.trim(),
+    email: jiraEmail.value.trim(),
+    apiToken: jiraApiToken.value.trim(),
+  };
+
+  if (!config.serverUrl || !config.email || !config.apiToken) {
+    jiraConnectionStatus.textContent = "⚠️ Please fill in all required fields";
+    jiraConnectionStatus.className = "connection-status error";
+    jiraConnectionStatus.classList.remove("hidden");
+    return;
+  }
+
+  testJiraConnectionBtn.disabled = true;
+  testJiraConnectionBtn.textContent = "Testing...";
+  jiraConnectionStatus.classList.add("hidden");
+
+  try {
+    const result = await testJiraConnection(config);
+    if (result.success) {
+      jiraConnectionStatus.textContent = `✓ Connected successfully! Found ${result.projectCount || 0} projects`;
+      jiraConnectionStatus.className = "connection-status success";
+    } else {
+      jiraConnectionStatus.textContent = `✗ Connection failed: ${result.error}`;
+      jiraConnectionStatus.className = "connection-status error";
+    }
+    jiraConnectionStatus.classList.remove("hidden");
+  } catch (error) {
+    jiraConnectionStatus.textContent = `✗ Connection failed: ${error.message}`;
+    jiraConnectionStatus.className = "connection-status error";
+    jiraConnectionStatus.classList.remove("hidden");
+  } finally {
+    testJiraConnectionBtn.disabled = false;
+    testJiraConnectionBtn.innerHTML = `<span class="icon icon-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span> Test Connection`;
+  }
+});
+
+// Test Jira connection function
+async function testJiraConnection(config) {
+  return await window.electronAPI.jiraTestConnection(config);
+}
+
+// Open Jira help modal
+jiraHelpLink.addEventListener("click", (e) => {
+  e.preventDefault();
+  jiraHelpModal.classList.remove("hidden");
+});
+
+closeJiraHelpModalBtn.addEventListener("click", () => {
+  jiraHelpModal.classList.add("hidden");
+});
+
+closeJiraHelpBtn.addEventListener("click", () => {
+  jiraHelpModal.classList.add("hidden");
+});
+
+// ===== Link Jira Issue Modal =====
+let linkIssueDebounceTimer = null;
+let linkedIssueData = null;
+
+// Open link Jira issue modal
+if (linkJiraIssueBtn) {
+  linkJiraIssueBtn.addEventListener("click", () => {
+    if (!isEditMode) return;
+
+    // Save the current selection/cursor position
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+      savedSelectionRange = selection.getRangeAt(0).cloneRange();
+    } else {
+      savedSelectionRange = null;
+    }
+
+    if (!jiraConfig.serverUrl || !jiraConfig.email || !jiraConfig.apiToken) {
+      showNotification(
+        "Please configure Jira integration in Settings first",
+        "error",
+      );
+      return;
+    }
+
+    // Reset and show modal
+    resetLinkJiraModal();
+    linkJiraIssueModal.classList.remove("hidden");
+    linkJiraIssueKey.focus();
+  });
+}
+
+function resetLinkJiraModal() {
+  if (linkJiraIssueKey) linkJiraIssueKey.value = "";
+  if (linkJiraModalError) linkJiraModalError.classList.add("hidden");
+  if (linkJiraPreview) linkJiraPreview.classList.add("hidden");
+  if (confirmLinkJiraBtn) confirmLinkJiraBtn.disabled = true;
+  linkedIssueData = null;
+}
+
+function closeLinkJiraModal() {
+  linkJiraIssueModal.classList.add("hidden");
+  resetLinkJiraModal();
+}
+
+if (closeLinkJiraModalBtn) {
+  closeLinkJiraModalBtn.addEventListener("click", closeLinkJiraModal);
+}
+
+if (cancelLinkJiraBtn) {
+  cancelLinkJiraBtn.addEventListener("click", closeLinkJiraModal);
+}
+
+// Fetch issue details on input
+if (linkJiraIssueKey) {
+  linkJiraIssueKey.addEventListener("input", (e) => {
+    const value = e.target.value.trim().toUpperCase();
+
+    // Clear previous timer
+    clearTimeout(linkIssueDebounceTimer);
+
+    // Hide preview and disable button
+    if (linkJiraPreview) linkJiraPreview.classList.add("hidden");
+    if (confirmLinkJiraBtn) confirmLinkJiraBtn.disabled = true;
+    if (linkJiraModalError) linkJiraModalError.classList.add("hidden");
+    linkedIssueData = null;
+
+    // Check for valid issue key format (PROJECT-123)
+    if (!value || !value.match(/^[A-Z]+-\d+$/)) {
+      return;
+    }
+
+    // Debounce the API call
+    linkIssueDebounceTimer = setTimeout(async () => {
+      await fetchIssuePreview(value);
+    }, 500);
+  });
+
+  // Allow pressing Enter to confirm
+  linkJiraIssueKey.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !confirmLinkJiraBtn.disabled) {
+      e.preventDefault();
+      confirmLinkJiraBtn.click();
+    }
+  });
+}
+
+async function fetchIssuePreview(issueKey) {
+  linkJiraPreview.classList.remove("hidden");
+  linkJiraPreview.classList.add("loading");
+  linkJiraPreview.classList.remove("error");
+
+  previewIssueKey.textContent = issueKey;
+  previewIssueSummary.textContent = "Loading...";
+  previewIssueType.textContent = "";
+  previewIssueStatus.textContent = "";
+
+  try {
+    const result = await window.electronAPI.jiraGetIssue(jiraConfig, issueKey);
+
+    if (!result.success) {
+      throw new Error(result.error || "Issue not found");
+    }
+
+    const issue = result.issue;
+    linkedIssueData = {
+      key: issue.key,
+      summary: issue.fields.summary,
+      type: issue.fields.issuetype?.name || "Unknown",
+      status: issue.fields.status?.name || "Unknown",
+    };
+
+    previewIssueKey.textContent = issue.key;
+    previewIssueSummary.textContent = issue.fields.summary;
+    previewIssueType.textContent = linkedIssueData.type;
+    previewIssueStatus.textContent = linkedIssueData.status;
+
+    linkJiraPreview.classList.remove("loading");
+    confirmLinkJiraBtn.disabled = false;
+  } catch (error) {
+    linkJiraPreview.classList.remove("loading");
+    linkJiraPreview.classList.add("error");
+    previewIssueSummary.textContent = error.message || "Issue not found";
+    previewIssueType.textContent = "";
+    previewIssueStatus.textContent = "";
+    linkedIssueData = null;
+    confirmLinkJiraBtn.disabled = true;
+  }
+}
+
+// Confirm link issue
+if (confirmLinkJiraBtn) {
+  confirmLinkJiraBtn.addEventListener("click", () => {
+    if (!linkedIssueData) return;
+
+    const issueUrl = `${jiraConfig.serverUrl}/browse/${linkedIssueData.key}`;
+
+    // Insert the link at cursor position
+    insertJiraLinkAtCursor(
+      linkedIssueData.key,
+      issueUrl,
+      linkedIssueData.summary,
+    );
+
+    showNotification(`Linked ${linkedIssueData.key}`);
+    closeLinkJiraModal();
+  });
+}
+
+// Insert Jira link at cursor (without replacing content)
+function insertJiraLinkAtCursor(issueKey, issueUrl, summary) {
+  if (!noteEditor || !isEditMode) return;
+
+  noteEditor.focus();
+
+  const link = document.createElement("a");
+  link.href = issueUrl;
+  link.className = "jira-issue-link";
+  link.textContent = `${issueKey}`;
+  link.title = `${summary}\nClick to open in Jira`;
+  link.target = "_blank";
+  link.contentEditable = "false";
+  link.dataset.jiraUrl = issueUrl;
+
+  // Use saved selection range if available
+  if (savedSelectionRange) {
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(savedSelectionRange);
+
+    const range = savedSelectionRange;
+    range.collapse(false); // Move to end of selection
+
+    // Insert space + link + space
+    const spaceBefore = document.createTextNode(" ");
+    range.insertNode(spaceBefore);
+    range.setStartAfter(spaceBefore);
+
+    range.insertNode(link);
+    range.setStartAfter(link);
+
+    const spaceAfter = document.createTextNode(" ");
+    range.insertNode(spaceAfter);
+    range.setStartAfter(spaceAfter);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    savedSelectionRange = null;
+  } else {
+    // Fallback: append at end
+    const spaceBefore = document.createTextNode(" ");
+    noteEditor.appendChild(spaceBefore);
+    noteEditor.appendChild(link);
+    const spaceAfter = document.createTextNode(" ");
+    noteEditor.appendChild(spaceAfter);
+  }
+
+  // Trigger save
+  notesSaveStatus.textContent = "Saving...";
+  notesSaveStatus.classList.add("saving");
+  clearTimeout(notesDebounceTimer);
+  notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+}
+
+// Open create Jira issue modal
+createJiraIssueBtn.addEventListener("click", () => {
+  if (!isEditMode) return;
+
+  // Save the current selection range before it's lost
+  const selection = window.getSelection();
+  if (selection.rangeCount > 0) {
+    savedSelectionRange = selection.getRangeAt(0).cloneRange();
+  } else {
+    savedSelectionRange = null;
+  }
+
+  // Get selected content including images
+  const selectionData = getSelectionWithImages();
+  selectedText = selectionData.text;
+  selectedImages = selectionData.images;
+
+  if (selectedText || selectedImages.length > 0) {
+    // Create summary from text (without image placeholders)
+    const summaryText = selectedText.replace(/\[Image: [^\]]+\]/g, "").trim();
+    jiraSummary.value = summaryText.substring(0, 255); // Jira summary max length
+
+    // Convert HTML to markdown for description
+    const markdownDesc = htmlToMarkdown(selectionData.html);
+    jiraDescription.value = markdownDesc || selectedText;
+
+    // Show attachment count if any
+    if (selectedImages.length > 0) {
+      jiraDescription.value += `\n\n---\n📎 ${selectedImages.length} attachment(s) will be attached`;
+    }
+  }
+
+  // Update attachment preview
+  updateAttachmentPreview();
+
+  openJiraIssueModal();
+});
+
+// Context menu for creating Jira issue from selected text
+noteEditor.addEventListener("contextmenu", (e) => {
+  if (!isEditMode) return;
+
+  const selectionData = getSelectionWithImages();
+
+  if (selectionData.text || selectionData.images.length > 0) {
+    selectedText = selectionData.text;
+    selectedImages = selectionData.images;
+    // You can add a custom context menu item here if needed
+  }
+});
+
+async function openJiraIssueModal() {
+  if (!jiraConfig.serverUrl || !jiraConfig.email || !jiraConfig.apiToken) {
+    showNotification(
+      "Please configure Jira integration in Settings first",
+      "error",
+    );
+    return;
+  }
+
+  jiraModalError.classList.add("hidden");
+  createJiraIssueModal.classList.remove("hidden");
+
+  // Load projects
+  await loadJiraProjects();
+
+  // Set default project if configured
+  if (
+    jiraConfig.defaultProject &&
+    jiraProject.querySelector(`option[value="${jiraConfig.defaultProject}"]`)
+  ) {
+    jiraProject.value = jiraConfig.defaultProject;
+    await loadIssueTypes(jiraConfig.defaultProject);
+  }
+}
+
+async function loadJiraProjects() {
+  jiraProject.innerHTML = '<option value="">Loading projects...</option>';
+  if (jiraProjectSearch) jiraProjectSearch.placeholder = "Loading projects...";
+
+  try {
+    const result = await window.electronAPI.jiraGetProjects(jiraConfig);
+
+    if (!result.success) {
+      throw new Error(result.error || "Failed to load projects");
+    }
+
+    jiraProjects = result.projects;
+
+    jiraProject.innerHTML = '<option value="">Select a project</option>';
+    const projectItems = [{ value: "", label: "Select a project", icon: "" }];
+
+    jiraProjects.forEach((project) => {
+      const option = document.createElement("option");
+      option.value = project.key;
+      option.textContent = `${project.name} (${project.key})`;
+      jiraProject.appendChild(option);
+      projectItems.push({
+        value: project.key,
+        label: `${project.name} (${project.key})`,
+        icon: "📁",
+      });
+    });
+
+    // Update searchable dropdown
+    if (projectDropdown) {
+      projectDropdown.setItems(projectItems);
+      if (jiraProjectSearch)
+        jiraProjectSearch.placeholder = "Search projects...";
+    }
+  } catch (error) {
+    jiraProject.innerHTML = '<option value="">Error loading projects</option>';
+    if (jiraProjectSearch)
+      jiraProjectSearch.placeholder = "Error loading projects";
+    showJiraModalError("Failed to load projects: " + error.message);
+  }
+}
+
+async function loadIssueTypes(projectKey) {
+  jiraIssueType.innerHTML = '<option value="">Loading...</option>';
+  if (jiraIssueTypeSearch) jiraIssueTypeSearch.placeholder = "Loading...";
+
+  try {
+    const result = await window.electronAPI.jiraGetProject(
+      jiraConfig,
+      projectKey,
+    );
+
+    if (!result.success) {
+      throw new Error(result.error || "Failed to load issue types");
+    }
+
+    const project = result.project;
+    const issueTypes = project.issueTypes || [];
+
+    jiraIssueType.innerHTML = '<option value="">Select issue type</option>';
+    const typeItems = [{ value: "", label: "Select issue type", icon: "" }];
+
+    issueTypes.forEach((type) => {
+      const option = document.createElement("option");
+      option.value = type.id;
+      option.textContent = type.name;
+      jiraIssueType.appendChild(option);
+
+      // Map issue type to icon
+      let icon = "📋";
+      const typeLower = type.name.toLowerCase();
+      if (typeLower.includes("bug")) icon = "🐛";
+      else if (typeLower.includes("task")) icon = "✅";
+      else if (typeLower.includes("story")) icon = "📖";
+      else if (typeLower.includes("epic")) icon = "⚡";
+      else if (typeLower.includes("improvement")) icon = "💡";
+      else if (typeLower.includes("feature")) icon = "🚀";
+
+      typeItems.push({ value: type.id, label: type.name, icon });
+    });
+
+    // Update searchable dropdown
+    if (issueTypeDropdown) {
+      issueTypeDropdown.setItems(typeItems);
+      if (jiraIssueTypeSearch)
+        jiraIssueTypeSearch.placeholder = "Search issue types...";
+    }
+
+    // Load sprints, assignees, and epics for the project in parallel
+    await Promise.all([
+      loadSprints(projectKey),
+      loadJiraUsers(projectKey),
+      loadEpics(projectKey),
+    ]);
+  } catch (error) {
+    jiraIssueType.innerHTML = '<option value="">Error loading types</option>';
+    showJiraModalError("Failed to load issue types: " + error.message);
+  }
+}
+
+async function loadJiraUsers(projectKey) {
+  if (!projectKey) return;
+
+  jiraAssignee.innerHTML = '<option value="">Loading assignees...</option>';
+  if (assigneeDropdown && jiraAssigneeSearch) {
+    jiraAssigneeSearch.placeholder = "Loading assignees...";
+  }
+
+  try {
+    const result = await window.electronAPI.jiraGetUsers(
+      jiraConfig,
+      projectKey,
+    );
+
+    if (!result.success) {
+      throw new Error(result.error || "Failed to load users");
+    }
+
+    jiraUsers = result.users;
+
+    jiraAssignee.innerHTML = '<option value="">Unassigned</option>';
+    const userItems = [{ value: "", label: "Unassigned", icon: "👤" }];
+
+    jiraUsers.forEach((user) => {
+      const option = document.createElement("option");
+      option.value = user.accountId;
+      option.textContent = user.displayName;
+      jiraAssignee.appendChild(option);
+      userItems.push({
+        value: user.accountId,
+        label: user.displayName,
+        icon: "👤",
+      });
+    });
+
+    // Update searchable dropdown
+    if (assigneeDropdown) {
+      assigneeDropdown.setItems(userItems);
+      if (jiraAssigneeSearch)
+        jiraAssigneeSearch.placeholder = "Search assignees...";
+    }
+  } catch (error) {
+    jiraAssignee.innerHTML = '<option value="">Unassigned</option>';
+    if (assigneeDropdown) {
+      assigneeDropdown.setItems([
+        { value: "", label: "Unassigned", icon: "👤" },
+      ]);
+    }
+    console.error("Failed to load users:", error);
+  }
+}
+
+async function loadSprints(projectKey) {
+  jiraSprint.innerHTML = '<option value="">Loading...</option>';
+  if (jiraSprintSearch) jiraSprintSearch.placeholder = "Loading...";
+
+  try {
+    const result = await window.electronAPI.jiraGetSprints(
+      jiraConfig,
+      projectKey,
+    );
+
+    jiraSprint.innerHTML = '<option value="">None</option>';
+    const sprintItems = [{ value: "", label: "None", icon: "" }];
+
+    if (result.success && result.sprints && result.sprints.length > 0) {
+      result.sprints.forEach((sprint) => {
+        const option = document.createElement("option");
+        option.value = sprint.id;
+        option.textContent = sprint.name;
+        jiraSprint.appendChild(option);
+        sprintItems.push({
+          value: sprint.id.toString(),
+          label: sprint.name,
+          icon: "🏃",
+        });
+      });
+    }
+
+    // Update searchable dropdown
+    if (sprintDropdown) {
+      sprintDropdown.setItems(sprintItems);
+      if (jiraSprintSearch) jiraSprintSearch.placeholder = "Select sprint...";
+    }
+  } catch (error) {
+    jiraSprint.innerHTML = '<option value="">None</option>';
+    if (sprintDropdown)
+      sprintDropdown.setItems([{ value: "", label: "None", icon: "" }]);
+    console.error("Failed to load sprints:", error);
+  }
+}
+
+async function loadEpics(projectKey) {
+  if (!jiraEpic) return;
+
+  jiraEpic.innerHTML = '<option value="">Loading...</option>';
+  if (jiraEpicSearch) jiraEpicSearch.placeholder = "Loading...";
+
+  try {
+    const result = await window.electronAPI.jiraGetEpics(
+      jiraConfig,
+      projectKey,
+    );
+    console.log("Epics result:", result);
+
+    jiraEpic.innerHTML = '<option value="">None</option>';
+    const epicItems = [{ value: "", label: "None", icon: "" }];
+
+    if (result.success && result.epics && result.epics.length > 0) {
+      result.epics.forEach((epic) => {
+        const option = document.createElement("option");
+        option.value = epic.key;
+        option.textContent = `${epic.key}: ${epic.summary}`;
+        jiraEpic.appendChild(option);
+        epicItems.push({
+          value: epic.key,
+          label: `${epic.key}: ${epic.summary}`,
+          icon: "⚡",
+        });
+      });
+    } else if (!result.success) {
+      console.error("Failed to load epics:", result.error);
+    }
+
+    // Update searchable dropdown
+    if (epicDropdown) {
+      epicDropdown.setItems(epicItems);
+      if (jiraEpicSearch)
+        jiraEpicSearch.placeholder = "Search or select epic...";
+    }
+  } catch (error) {
+    jiraEpic.innerHTML = '<option value="">None</option>';
+    if (epicDropdown)
+      epicDropdown.setItems([{ value: "", label: "None", icon: "" }]);
+    console.error("Failed to load epics:", error);
+  }
+}
+
+// Project selection change
+jiraProject.addEventListener("change", async (e) => {
+  const projectKey = e.target.value;
+  if (projectKey) {
+    // Reset issue type, sprint, and epic dropdowns
+    if (issueTypeDropdown) {
+      issueTypeDropdown.reset();
+      if (jiraIssueTypeSearch) jiraIssueTypeSearch.value = "";
+    }
+    if (sprintDropdown) {
+      sprintDropdown.reset();
+      if (jiraSprintSearch) jiraSprintSearch.value = "";
+    }
+    if (epicDropdown) {
+      epicDropdown.reset();
+      if (jiraEpicSearch) jiraEpicSearch.value = "";
+    }
+    await loadIssueTypes(projectKey);
+  } else {
+    jiraIssueType.innerHTML = '<option value="">Select project first</option>';
+    jiraSprint.innerHTML = '<option value="">None</option>';
+    if (jiraEpic) jiraEpic.innerHTML = '<option value="">None</option>';
+    if (issueTypeDropdown)
+      issueTypeDropdown.setItems([
+        { value: "", label: "Select project first", icon: "" },
+      ]);
+    if (sprintDropdown)
+      sprintDropdown.setItems([{ value: "", label: "None", icon: "" }]);
+    if (epicDropdown)
+      epicDropdown.setItems([{ value: "", label: "None", icon: "" }]);
+  }
+});
+
+// Issue type selection change - show/hide bug-specific fields
+jiraIssueType.addEventListener("change", (e) => {
+  const selectedOption = e.target.options[e.target.selectedIndex];
+  const typeName = selectedOption
+    ? selectedOption.textContent.toLowerCase()
+    : "";
+
+  if (jiraBugFields) {
+    if (typeName.includes("bug")) {
+      jiraBugFields.classList.remove("hidden");
+    } else {
+      jiraBugFields.classList.add("hidden");
+    }
+  }
+});
+
+// Close Jira modal
+function closeJiraModal() {
+  createJiraIssueModal.classList.add("hidden");
+  resetJiraForm();
+}
+
+closeJiraModalBtn.addEventListener("click", closeJiraModal);
+cancelJiraBtn.addEventListener("click", closeJiraModal);
+
+function resetJiraForm() {
+  jiraSummary.value = "";
+  jiraDescription.value = "";
+  jiraPriority.value = "";
+  jiraAssignee.value = "";
+  jiraLabels.value = "";
+  jiraStoryPoints.value = "";
+  insertJiraLink.checked = true;
+  jiraModalError.classList.add("hidden");
+  selectedText = "";
+  selectedImages = [];
+
+  // Reset file input
+  if (jiraFileInput) jiraFileInput.value = "";
+
+  // Reset attachment preview
+  updateAttachmentPreview();
+
+  // Reset bug-specific fields
+  if (jiraBugFields) jiraBugFields.classList.add("hidden");
+  if (jiraStepsToReproduce) jiraStepsToReproduce.value = "";
+  if (jiraExpectedResult) jiraExpectedResult.value = "";
+  if (jiraActualResult) jiraActualResult.value = "";
+  if (jiraEnvironment) jiraEnvironment.value = "";
+
+  // Reset searchable dropdowns
+  if (jiraProjectSearch) jiraProjectSearch.value = "";
+  if (jiraIssueTypeSearch) jiraIssueTypeSearch.value = "";
+  if (jiraPrioritySearch) jiraPrioritySearch.value = "";
+  if (jiraAssigneeSearch) jiraAssigneeSearch.value = "";
+  if (jiraEpicSearch) jiraEpicSearch.value = "";
+  if (jiraSprintSearch) jiraSprintSearch.value = "";
+
+  if (projectDropdown) projectDropdown.selectedValue = "";
+  if (issueTypeDropdown) issueTypeDropdown.selectedValue = "";
+  if (priorityDropdown) priorityDropdown.selectedValue = "";
+  if (assigneeDropdown) assigneeDropdown.selectedValue = "";
+  if (epicDropdown) epicDropdown.selectedValue = "";
+  if (sprintDropdown) sprintDropdown.selectedValue = "";
+}
+
+function showJiraModalError(message) {
+  jiraModalError.textContent = message;
+  jiraModalError.classList.remove("hidden");
+  // Scroll to error message
+  jiraModalError.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// Create Jira issue
+confirmJiraBtn.addEventListener("click", async () => {
+  const projectKey = jiraProject.value;
+  const issueTypeId = jiraIssueType.value;
+  const summary = jiraSummary.value.trim();
+
+  if (!projectKey || !issueTypeId || !summary) {
+    showJiraModalError(
+      "Please fill in all required fields (Project, Issue Type, Summary)",
+    );
+    return;
+  }
+
+  confirmJiraBtn.disabled = true;
+  confirmJiraBtn.innerHTML = '<span class="btn-icon">⏳</span> Creating...';
+  jiraModalError.classList.add("hidden");
+
+  try {
+    const issueData = {
+      fields: {
+        project: { key: projectKey },
+        summary: summary,
+        issuetype: { id: issueTypeId },
+      },
+    };
+
+    // Add optional fields - build description with bug fields if applicable
+    let descText = jiraDescription.value.trim();
+    descText = descText
+      .replace(/\n---\n📎 \d+ image\(s\) will be attached$/, "")
+      .trim();
+
+    // Check if this is a bug type and append bug-specific fields to description
+    const selectedOption = jiraIssueType.options[jiraIssueType.selectedIndex];
+    const typeName = selectedOption
+      ? selectedOption.textContent.toLowerCase()
+      : "";
+
+    if (typeName.includes("bug")) {
+      const stepsText = jiraStepsToReproduce?.value.trim() || "";
+      const expectedText = jiraExpectedResult?.value.trim() || "";
+      const actualText = jiraActualResult?.value.trim() || "";
+      const envText = jiraEnvironment?.value.trim() || "";
+
+      let bugSection = "";
+
+      if (stepsText) {
+        bugSection += "\n\n## Steps to Reproduce\n" + stepsText;
+      }
+      if (expectedText) {
+        bugSection += "\n\n## Expected Result\n" + expectedText;
+      }
+      if (actualText) {
+        bugSection += "\n\n## Actual Result\n" + actualText;
+      }
+      if (envText) {
+        bugSection += "\n\n## Environment\n" + envText;
+      }
+
+      descText = descText + bugSection;
+    }
+
+    if (descText) {
+      const adfDescription = markdownToADF(descText);
+      if (adfDescription) {
+        issueData.fields.description = adfDescription;
+      }
+    }
+
+    if (jiraPriority.value) {
+      issueData.fields.priority = { id: jiraPriority.value };
+    }
+
+    if (jiraAssignee.value) {
+      issueData.fields.assignee = { accountId: jiraAssignee.value };
+    }
+
+    if (jiraLabels.value.trim()) {
+      issueData.fields.labels = jiraLabels.value
+        .split(",")
+        .map((l) => l.trim())
+        .filter((l) => l);
+    }
+
+    if (jiraStoryPoints.value) {
+      // Custom field for story points (may vary by Jira instance)
+      issueData.fields.customfield_10016 = parseFloat(jiraStoryPoints.value);
+    }
+
+    // Add Epic link if selected (parent field for next-gen, customfield_10014 for classic)
+    if (jiraEpic && jiraEpic.value) {
+      // Try parent field first (works for next-gen projects)
+      issueData.fields.parent = { key: jiraEpic.value };
+    }
+
+    const result = await window.electronAPI.jiraCreateIssue(
+      jiraConfig,
+      issueData,
+    );
+
+    if (!result.success) {
+      throw new Error(result.error || "Failed to create issue");
+    }
+
+    const issueKey = result.issue.key;
+    const issueUrl = `${jiraConfig.serverUrl}/browse/${issueKey}`;
+
+    // Upload images as attachments
+    if (selectedImages.length > 0) {
+      confirmJiraBtn.innerHTML = `<span class="btn-icon">📎</span> Uploading ${selectedImages.length} file(s)...`;
+      console.log(
+        `[Jira Upload] Starting upload of ${selectedImages.length} files`,
+      );
+      console.log(`[Jira Upload] selectedImages array:`, selectedImages);
+
+      for (let i = 0; i < selectedImages.length; i++) {
+        const file = selectedImages[i];
+        console.log(`[Jira Upload] Processing file ${i}:`, file);
+        try {
+          confirmJiraBtn.innerHTML = `<span class="btn-icon">📎</span> Uploading file ${i + 1}/${selectedImages.length}...`;
+          console.log(`[Jira Upload] File ${i}: filename=${file.filename}`);
+          console.log(`[Jira Upload] File ${i}: data type=${typeof file.data}`);
+          console.log(
+            `[Jira Upload] File ${i}: data length=${file.data?.length || 0}`,
+          );
+          console.log(
+            `[Jira Upload] File ${i}: data starts with=${file.data?.substring(0, 50)}`,
+          );
+
+          if (!file.data || !file.data.startsWith("data:")) {
+            console.error(
+              `[Jira Upload] Invalid file data for ${file.filename}`,
+            );
+            continue;
+          }
+
+          const uploadResult = await window.electronAPI.jiraUploadAttachment(
+            jiraConfig,
+            issueKey,
+            file.data,
+            file.filename,
+          );
+          console.log(
+            `[Jira Upload] Upload result for ${file.filename}:`,
+            uploadResult,
+          );
+          if (!uploadResult.success) {
+            console.error(
+              `[Jira Upload] Failed to upload ${file.filename}:`,
+              uploadResult.error,
+            );
+          }
+        } catch (attachError) {
+          console.error(
+            `[Jira Upload] Exception uploading file ${file.filename}:`,
+            attachError,
+          );
+        }
+      }
+    } else {
+      console.log(
+        `[Jira Upload] No files to upload (selectedImages.length = 0)`,
+      );
+    }
+
+    // Add to sprint if selected
+    if (jiraSprint.value) {
+      try {
+        await window.electronAPI.jiraAddToSprint(
+          jiraConfig,
+          jiraSprint.value,
+          issueKey,
+        );
+      } catch (sprintError) {
+        console.error("Failed to add issue to sprint:", sprintError);
+      }
+    }
+
+    // Insert link in note if checked
+    if (insertJiraLink.checked && isEditMode) {
+      insertJiraLinkInNote(issueKey, issueUrl, summary);
+    }
+
+    const attachmentMsg =
+      selectedImages.length > 0
+        ? ` with ${selectedImages.length} attachment(s)`
+        : "";
+    showNotification(`Jira issue ${issueKey} created${attachmentMsg}!`);
+    closeJiraModal();
+  } catch (error) {
+    showJiraModalError(error.message || "Failed to create Jira issue");
+  } finally {
+    confirmJiraBtn.disabled = false;
+    confirmJiraBtn.innerHTML = '<span class="btn-icon">✓</span> Create Issue';
+  }
+});
+
+function insertJiraLinkInNote(issueKey, issueUrl, summary) {
+  if (!noteEditor || !isEditMode) return;
+
+  noteEditor.focus();
+
+  const link = document.createElement("a");
+  link.href = issueUrl;
+  link.className = "jira-issue-link";
+  link.textContent = `${issueKey}`;
+  link.title = `${summary}\nClick to open in Jira`;
+  link.target = "_blank";
+  link.contentEditable = "false";
+  link.dataset.jiraUrl = issueUrl;
+
+  // Use saved selection range if available
+  if (savedSelectionRange) {
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(savedSelectionRange);
+
+    const range = savedSelectionRange;
+
+    // Insert link BEFORE the selection (don't delete content)
+    const startContainer = range.startContainer;
+    const startOffset = range.startOffset;
+
+    // Create a new range at the start of selection
+    const insertRange = document.createRange();
+    insertRange.setStart(startContainer, startOffset);
+    insertRange.collapse(true);
+
+    // Insert the link at the beginning
+    insertRange.insertNode(link);
+
+    // Add space after link
+    const spaceAfter = document.createTextNode(" ");
+    link.after(spaceAfter);
+
+    // Move cursor after the space
+    const newRange = document.createRange();
+    newRange.setStartAfter(spaceAfter);
+    newRange.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(newRange);
+
+    savedSelectionRange = null;
+  } else {
+    // Fallback: append at end of editor content
+    const spaceBefore = document.createTextNode(" ");
+    noteEditor.appendChild(spaceBefore);
+    noteEditor.appendChild(link);
+    const spaceAfter = document.createTextNode(" ");
+    noteEditor.appendChild(spaceAfter);
+  }
+
+  // Trigger save
+  notesSaveStatus.textContent = "Saving...";
+  notesSaveStatus.classList.add("saving");
+  clearTimeout(notesDebounceTimer);
+  notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+}
+
+// Handle Jira link clicks - open in external browser
+if (noteEditor) {
+  noteEditor.addEventListener("click", async (e) => {
+    const jiraLink = e.target.closest(".jira-issue-link");
+    if (jiraLink) {
+      e.preventDefault();
+      e.stopPropagation();
+      const url = jiraLink.href || jiraLink.dataset.jiraUrl;
+      if (url) {
+        try {
+          await window.electronAPI.openUrl(url);
+        } catch (error) {
+          console.error("Failed to open Jira link:", error);
+        }
+      }
+    }
+  });
+}
+
+// Also handle Jira link clicks at document level (works in view mode)
+document.addEventListener("click", async (e) => {
+  const jiraLink = e.target.closest(".jira-issue-link");
+  if (jiraLink) {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = jiraLink.href || jiraLink.dataset.jiraUrl;
+    if (url) {
+      try {
+        await window.electronAPI.openUrl(url);
+      } catch (error) {
+        console.error("Failed to open Jira link:", error);
+      }
+    }
+  }
+});
+
+// Load Jira config on page load
+if (jiraServerUrl) {
+  loadJiraConfig();
+}
+
 // Initialize on page load
 document.addEventListener("DOMContentLoaded", init);

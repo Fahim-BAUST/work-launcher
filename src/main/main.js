@@ -11,6 +11,8 @@ const {
 } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const https = require("https");
+const http = require("http");
 const { autoUpdater } = require("electron-updater");
 const {
   launchApp,
@@ -1005,6 +1007,383 @@ function setupIpcHandlers() {
     }
     return notes;
   });
+
+  // Jira integration
+  ipcMain.handle("get-jira-config", () => {
+    return store.get("jiraConfig", null);
+  });
+
+  ipcMain.handle("save-jira-config", (event, config) => {
+    store.set("jiraConfig", config);
+    return config;
+  });
+
+  // Jira API helper function
+  async function jiraApiRequest(config, endpoint, method = "GET", body = null) {
+    const https = require("https");
+    const http = require("http");
+    const url = require("url");
+
+    return new Promise((resolve, reject) => {
+      const fullUrl = `${config.serverUrl}${endpoint}`;
+      const parsedUrl = url.parse(fullUrl);
+      const isHttps = parsedUrl.protocol === "https:";
+      const client = isHttps ? https : http;
+
+      const options = {
+        hostname: parsedUrl.hostname,
+        port: parsedUrl.port || (isHttps ? 443 : 80),
+        path: parsedUrl.path,
+        method: method,
+        headers: {
+          Authorization:
+            "Basic " +
+            Buffer.from(`${config.email}:${config.apiToken}`).toString(
+              "base64",
+            ),
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+      };
+
+      const req = client.request(options, (res) => {
+        let data = "";
+        res.on("data", (chunk) => {
+          data += chunk;
+        });
+        res.on("end", () => {
+          try {
+            const jsonData = data ? JSON.parse(data) : {};
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+              resolve(jsonData);
+            } else {
+              reject(
+                new Error(
+                  jsonData.errorMessages?.[0] ||
+                    jsonData.message ||
+                    `HTTP ${res.statusCode}`,
+                ),
+              );
+            }
+          } catch (e) {
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+              resolve({});
+            } else {
+              reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+            }
+          }
+        });
+      });
+
+      req.on("error", (error) => {
+        reject(error);
+      });
+
+      req.setTimeout(30000, () => {
+        req.destroy();
+        reject(new Error("Request timeout"));
+      });
+
+      if (body) {
+        req.write(JSON.stringify(body));
+      }
+      req.end();
+    });
+  }
+
+  // Helper function for Jira attachment upload (multipart/form-data)
+  async function jiraUploadAttachment(config, issueKey, fileData, filename) {
+    return new Promise((resolve, reject) => {
+      console.log(
+        `[Jira Attachment] Starting upload for ${filename} to ${issueKey}`,
+      );
+      console.log(
+        `[Jira Attachment] File data length: ${fileData?.length || 0}`,
+      );
+
+      const url = new URL(config.serverUrl);
+      const isHttps = url.protocol === "https:";
+      const httpModule = isHttps ? https : http;
+
+      // Convert base64 data URL to buffer (supports any file type)
+      const base64Match = fileData.match(/^data:([^;]+);base64,(.+)$/);
+      if (!base64Match) {
+        console.error(
+          `[Jira Attachment] Invalid data format. Data starts with: ${fileData?.substring(0, 50)}`,
+        );
+        reject(new Error("Invalid file data format"));
+        return;
+      }
+
+      const mimeType = base64Match[1];
+      const base64Data = base64Match[2];
+      console.log(
+        `[Jira Attachment] File type: ${mimeType}, base64 length: ${base64Data.length}`,
+      );
+      const fileBuffer = Buffer.from(base64Data, "base64");
+
+      // Create multipart boundary
+      const boundary = "----JiraAttachment" + Date.now();
+
+      // Build multipart body
+      const bodyParts = [];
+      bodyParts.push(`--${boundary}`);
+      bodyParts.push(
+        `Content-Disposition: form-data; name="file"; filename="${filename}"`,
+      );
+      bodyParts.push(`Content-Type: ${mimeType}`);
+      bodyParts.push("");
+
+      const headerBuffer = Buffer.from(bodyParts.join("\r\n") + "\r\n");
+      const footerBuffer = Buffer.from(`\r\n--${boundary}--\r\n`);
+      const fullBody = Buffer.concat([headerBuffer, fileBuffer, footerBuffer]);
+
+      const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString(
+        "base64",
+      );
+
+      const options = {
+        hostname: url.hostname,
+        port: url.port || (isHttps ? 443 : 80),
+        path: `/rest/api/3/issue/${issueKey}/attachments`,
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${auth}`,
+          "Content-Type": `multipart/form-data; boundary=${boundary}`,
+          "Content-Length": fullBody.length,
+          "X-Atlassian-Token": "no-check",
+        },
+      };
+
+      console.log(
+        `[Jira Attachment] Making request to: ${options.hostname}${options.path}`,
+      );
+      console.log(`[Jira Attachment] Body size: ${fullBody.length} bytes`);
+
+      const req = httpModule.request(options, (res) => {
+        let data = "";
+        res.on("data", (chunk) => {
+          data += chunk;
+        });
+        res.on("end", () => {
+          console.log(`[Jira Attachment] Response status: ${res.statusCode}`);
+          console.log(
+            `[Jira Attachment] Response data: ${data.substring(0, 500)}`,
+          );
+          try {
+            const jsonData = data ? JSON.parse(data) : {};
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+              console.log(`[Jira Attachment] Upload successful!`);
+              resolve(jsonData);
+            } else {
+              console.error(
+                `[Jira Attachment] Upload failed: ${jsonData.errorMessages?.[0] || jsonData.message || `HTTP ${res.statusCode}`}`,
+              );
+              reject(
+                new Error(
+                  jsonData.errorMessages?.[0] ||
+                    jsonData.message ||
+                    `HTTP ${res.statusCode}`,
+                ),
+              );
+            }
+          } catch (e) {
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+              console.log(
+                `[Jira Attachment] Upload successful (non-JSON response)`,
+              );
+              resolve({});
+            } else {
+              console.error(
+                `[Jira Attachment] Upload failed: HTTP ${res.statusCode}: ${data}`,
+              );
+              reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+            }
+          }
+        });
+      });
+
+      req.on("error", (error) => {
+        reject(error);
+      });
+
+      req.setTimeout(60000, () => {
+        req.destroy();
+        reject(new Error("Attachment upload timeout"));
+      });
+
+      req.write(fullBody);
+      req.end();
+    });
+  }
+
+  // Test Jira connection
+  ipcMain.handle("jira-test-connection", async (event, config) => {
+    try {
+      await jiraApiRequest(config, "/rest/api/3/myself");
+      const projects = await jiraApiRequest(config, "/rest/api/3/project");
+      return { success: true, projectCount: projects.length };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get Jira projects
+  ipcMain.handle("jira-get-projects", async (event, config) => {
+    try {
+      const projects = await jiraApiRequest(config, "/rest/api/3/project");
+      return { success: true, projects };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get Jira project details (including issue types)
+  ipcMain.handle("jira-get-project", async (event, config, projectKey) => {
+    try {
+      const project = await jiraApiRequest(
+        config,
+        `/rest/api/3/project/${projectKey}`,
+      );
+      return { success: true, project };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get Jira users
+  ipcMain.handle("jira-get-users", async (event, config, projectKey) => {
+    try {
+      // Use assignable/search endpoint to get users who can be assigned issues in this project
+      const users = await jiraApiRequest(
+        config,
+        `/rest/api/3/user/assignable/search?project=${projectKey}&maxResults=1000`,
+      );
+      return { success: true, users };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get Jira sprints for a project
+  ipcMain.handle("jira-get-sprints", async (event, config, projectKey) => {
+    try {
+      // First get the board ID
+      const boards = await jiraApiRequest(
+        config,
+        `/rest/agile/1.0/board?projectKeyOrId=${projectKey}`,
+      );
+      if (boards.values && boards.values.length > 0) {
+        const boardId = boards.values[0].id;
+        const sprints = await jiraApiRequest(
+          config,
+          `/rest/agile/1.0/board/${boardId}/sprint?state=active,future`,
+        );
+        return { success: true, sprints: sprints.values || [] };
+      }
+      return { success: true, sprints: [] };
+    } catch (error) {
+      return { success: false, error: error.message, sprints: [] };
+    }
+  });
+
+  // Get Jira epics for a project
+  ipcMain.handle("jira-get-epics", async (event, config, projectKey) => {
+    try {
+      // Search for all Epics in the project using new JQL API
+      const result = await jiraApiRequest(
+        config,
+        "/rest/api/3/search/jql",
+        "POST",
+        {
+          jql: `project = ${projectKey} AND issuetype = Epic ORDER BY created DESC`,
+          fields: ["summary", "status"],
+          maxResults: 100,
+        },
+      );
+      const epics = (result.issues || []).map((issue) => ({
+        key: issue.key,
+        summary: issue.fields.summary,
+        status: issue.fields.status?.name || "Unknown",
+      }));
+      return { success: true, epics };
+    } catch (error) {
+      console.error("Failed to load epics:", error.message);
+      return { success: false, error: error.message, epics: [] };
+    }
+  });
+
+  // Create Jira issue
+  ipcMain.handle("jira-create-issue", async (event, config, issueData) => {
+    try {
+      const result = await jiraApiRequest(
+        config,
+        "/rest/api/3/issue",
+        "POST",
+        issueData,
+      );
+      return { success: true, issue: result };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get Jira issue by key
+  ipcMain.handle("jira-get-issue", async (event, config, issueKey) => {
+    try {
+      const result = await jiraApiRequest(
+        config,
+        `/rest/api/3/issue/${issueKey}?fields=summary,issuetype,status`,
+      );
+      return { success: true, issue: result };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Upload attachment to Jira issue
+  ipcMain.handle(
+    "jira-upload-attachment",
+    async (event, config, issueKey, imageData, filename) => {
+      console.log(
+        `[IPC] jira-upload-attachment called for ${filename} to ${issueKey}`,
+      );
+      try {
+        const result = await jiraUploadAttachment(
+          config,
+          issueKey,
+          imageData,
+          filename,
+        );
+        console.log(`[IPC] Upload attachment success for ${filename}`);
+        return { success: true, attachment: result };
+      } catch (error) {
+        console.error(
+          `[IPC] Upload attachment failed for ${filename}:`,
+          error.message,
+        );
+        return { success: false, error: error.message };
+      }
+    },
+  );
+
+  // Add issue to sprint
+  ipcMain.handle(
+    "jira-add-to-sprint",
+    async (event, config, sprintId, issueKey) => {
+      try {
+        await jiraApiRequest(
+          config,
+          `/rest/agile/1.0/sprint/${sprintId}/issue`,
+          "POST",
+          { issues: [issueKey] },
+        );
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    },
+  );
 
   // Quit app completely
   ipcMain.handle("quit-app", () => {

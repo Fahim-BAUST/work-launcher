@@ -694,6 +694,121 @@
               </div>
             </section>
 
+            <!-- Jira Integration Section -->
+            <section class="settings-section collapsible">
+              <h2 class="section-title" data-section="jira">
+                <span class="icon icon-sm">🔗</span>
+                Jira Integration
+                <span class="collapse-icon"
+                  ><svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="6 9 12 15 18 9"></polyline></svg
+                ></span>
+              </h2>
+
+              <div class="section-content">
+                <div class="jira-config-info">
+                  <p class="help-text">
+                    Connect your Jira account to create issues directly from
+                    notes.
+                    <a href="#" id="jiraHelpLink" class="help-link"
+                      >How to get API token?</a
+                    >
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label for="jiraServerUrl">Jira Server URL</label>
+                  <input
+                    type="url"
+                    id="jiraServerUrl"
+                    placeholder="https://your-domain.atlassian.net"
+                    class="input-field"
+                  />
+                  <span class="help-text"
+                    >Your Jira Cloud or Server instance URL</span
+                  >
+                </div>
+
+                <div class="form-group">
+                  <label for="jiraEmail">Email</label>
+                  <input
+                    type="email"
+                    id="jiraEmail"
+                    placeholder="your.email@company.com"
+                    class="input-field"
+                  />
+                  <span class="help-text">Your Jira account email</span>
+                </div>
+
+                <div class="form-group">
+                  <label for="jiraApiToken">API Token</label>
+                  <div class="input-with-toggle">
+                    <input
+                      type="password"
+                      id="jiraApiToken"
+                      placeholder="Your Jira API token"
+                      class="input-field"
+                    />
+                    <button
+                      type="button"
+                      id="toggleJiraToken"
+                      class="toggle-visibility-btn"
+                    >
+                      👁️
+                    </button>
+                  </div>
+                  <div class="jira-token-hint" id="jiraTokenHint">
+                    <span class="hint-icon">💡</span>
+                    <span class="hint-text"
+                      >Don't have a token?
+                      <a
+                        href="#"
+                        id="createTokenLink"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        >Create one here</a
+                      ></span
+                    >
+                  </div>
+                  <span class="help-text"
+                    >Generate from your Atlassian account settings</span
+                  >
+                </div>
+
+                <div class="jira-actions">
+                  <button id="testJiraConnectionBtn" class="btn btn-secondary">
+                    <span class="icon icon-sm">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                      </svg>
+                    </span>
+                    Test Connection
+                  </button>
+                  <button id="saveJiraConfigBtn" class="btn btn-primary">
+                    <span class="icon icon-sm">💾</span>
+                    Save Configuration
+                  </button>
+                </div>
+                <div
+                  id="jiraConnectionStatus"
+                  class="connection-status hidden"
+                ></div>
+              </div>
+            </section>
+
             <!-- Action buttons inside card -->
             <div class="actions-inner">
               <button id="launchNowBtn" class="btn btn-primary btn-large">
@@ -1206,6 +1321,27 @@
                           ✅ Done
                         </button>
                       </div>
+                    </div>
+                    <span class="toolbar-divider"></span>
+
+                    <!-- Jira Integration -->
+                    <div class="jira-toolbar-group">
+                      <button
+                        type="button"
+                        id="createJiraIssueBtn"
+                        title="Create Jira Issue from selection"
+                        class="jira-btn"
+                      >
+                        🎫 Create Jira Issue
+                      </button>
+                      <button
+                        type="button"
+                        id="linkJiraIssueBtn"
+                        title="Link existing Jira Issue"
+                        class="jira-btn jira-link-btn"
+                      >
+                        🔗 Add Jira Link
+                      </button>
                     </div>
                     <span class="toolbar-divider"></span>
 
@@ -1886,6 +2022,515 @@
           <button id="confirmInsertLinkBtn" class="btn btn-success">
             Insert Link
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Jira Issue Modal -->
+    <div id="createJiraIssueModal" class="modal hidden">
+      <div class="modal-content jira-modal">
+        <div class="modal-header jira-modal-header">
+          <div class="jira-modal-title">
+            <span class="jira-icon">🎫</span>
+            <h3>Create Jira Issue</h3>
+          </div>
+          <button id="closeJiraModalBtn" class="btn-close">&times;</button>
+        </div>
+        <div class="modal-body jira-modal-body">
+          <div id="jiraModalError" class="jira-error hidden"></div>
+
+          <!-- Project & Issue Type Row -->
+          <div class="jira-form-row">
+            <div class="jira-form-group">
+              <label class="jira-label">
+                <span class="label-icon">📁</span>
+                Project <span class="required">*</span>
+              </label>
+              <div class="jira-searchable-select" data-for="jiraProject">
+                <input
+                  type="text"
+                  class="jira-search-input"
+                  placeholder="Search projects..."
+                  id="jiraProjectSearch"
+                />
+                <select id="jiraProject" class="jira-select" required>
+                  <option value="">Loading projects...</option>
+                </select>
+                <div
+                  class="jira-dropdown-list hidden"
+                  id="jiraProjectList"
+                ></div>
+              </div>
+            </div>
+            <div class="jira-form-group">
+              <label class="jira-label">
+                <span class="label-icon">📋</span>
+                Issue Type <span class="required">*</span>
+              </label>
+              <div class="jira-searchable-select" data-for="jiraIssueType">
+                <input
+                  type="text"
+                  class="jira-search-input"
+                  placeholder="Search types..."
+                  id="jiraIssueTypeSearch"
+                />
+                <select id="jiraIssueType" class="jira-select" required>
+                  <option value="">Select project first</option>
+                </select>
+                <div
+                  class="jira-dropdown-list hidden"
+                  id="jiraIssueTypeList"
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Summary -->
+          <div class="jira-form-group full-width">
+            <label class="jira-label">
+              <span class="label-icon">✏️</span>
+              Summary <span class="required">*</span>
+            </label>
+            <input
+              type="text"
+              id="jiraSummary"
+              placeholder="Brief description of the issue"
+              class="jira-input"
+              required
+            />
+          </div>
+
+          <!-- Description -->
+          <div class="jira-form-group full-width">
+            <label class="jira-label">
+              <span class="label-icon">📝</span>
+              Description
+              <span class="jira-markdown-hint">Supports Markdown</span>
+            </label>
+            <div class="jira-description-wrapper">
+              <div class="jira-markdown-toolbar">
+                <button
+                  type="button"
+                  class="jira-md-btn"
+                  data-md="bold"
+                  title="Bold (Ctrl+B)"
+                >
+                  <b>B</b>
+                </button>
+                <button
+                  type="button"
+                  class="jira-md-btn"
+                  data-md="italic"
+                  title="Italic (Ctrl+I)"
+                >
+                  <i>I</i>
+                </button>
+                <button
+                  type="button"
+                  class="jira-md-btn"
+                  data-md="code"
+                  title="Inline Code"
+                >
+                  &lt;/&gt;
+                </button>
+                <span class="jira-md-divider"></span>
+                <button
+                  type="button"
+                  class="jira-md-btn"
+                  data-md="bullet"
+                  title="Bullet List"
+                >
+                  •
+                </button>
+                <button
+                  type="button"
+                  class="jira-md-btn"
+                  data-md="number"
+                  title="Numbered List"
+                >
+                  1.
+                </button>
+                <button
+                  type="button"
+                  class="jira-md-btn"
+                  data-md="heading"
+                  title="Heading"
+                >
+                  #
+                </button>
+                <span class="jira-md-divider"></span>
+                <button
+                  type="button"
+                  class="jira-md-btn"
+                  data-md="codeblock"
+                  title="Code Block"
+                >
+                  ```
+                </button>
+                <button
+                  type="button"
+                  class="jira-md-btn"
+                  data-md="link"
+                  title="Link"
+                >
+                  🔗
+                </button>
+              </div>
+              <textarea
+                id="jiraDescription"
+                rows="5"
+                placeholder="Detailed description (optional)&#10;&#10;Supports: **bold**, *italic*, `code`, # heading, - bullets, 1. numbered, ```code blocks```"
+                class="jira-textarea jira-description-textarea"
+              ></textarea>
+            </div>
+          </div>
+
+          <!-- Bug-specific fields (shown only for Bug type) -->
+          <div id="jiraBugFields" class="jira-bug-fields hidden">
+            <div class="jira-form-group full-width">
+              <label class="jira-label">
+                <span class="label-icon">👣</span>
+                Steps to Reproduce
+              </label>
+              <textarea
+                id="jiraStepsToReproduce"
+                rows="4"
+                placeholder="1. Go to...&#10;2. Click on...&#10;3. See error"
+                class="jira-textarea"
+              ></textarea>
+            </div>
+            <div class="jira-form-row">
+              <div class="jira-form-group">
+                <label class="jira-label">
+                  <span class="label-icon">✅</span>
+                  Expected Result
+                </label>
+                <textarea
+                  id="jiraExpectedResult"
+                  rows="2"
+                  placeholder="What should happen..."
+                  class="jira-textarea"
+                ></textarea>
+              </div>
+              <div class="jira-form-group">
+                <label class="jira-label">
+                  <span class="label-icon">❌</span>
+                  Actual Result
+                </label>
+                <textarea
+                  id="jiraActualResult"
+                  rows="2"
+                  placeholder="What actually happens..."
+                  class="jira-textarea"
+                ></textarea>
+              </div>
+            </div>
+            <div class="jira-form-group full-width">
+              <label class="jira-label">
+                <span class="label-icon">💻</span>
+                Environment
+                <span class="jira-optional-hint">(optional)</span>
+              </label>
+              <input
+                type="text"
+                id="jiraEnvironment"
+                placeholder="e.g., Windows 11, Chrome 120, Production"
+                class="jira-input"
+              />
+            </div>
+          </div>
+
+          <!-- Attachments Section -->
+          <div id="jiraAttachmentsSection" class="jira-attachments-section">
+            <div class="jira-attachments-header">
+              <label class="jira-label">
+                <span class="label-icon">📎</span>
+                Attachments
+                <span
+                  id="jiraAttachmentCount"
+                  class="jira-attachment-count"
+                ></span>
+              </label>
+              <button
+                type="button"
+                id="jiraAttachFileBtn"
+                class="jira-attach-btn"
+              >
+                <span>📁</span> Attach Files
+              </button>
+              <input
+                type="file"
+                id="jiraFileInput"
+                multiple
+                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar"
+                style="display: none"
+              />
+            </div>
+            <div id="jiraAttachmentsPreview" class="jira-attachments-preview">
+              <div class="jira-no-attachments" id="jiraNoAttachments">
+                No attachments. Select text with images or click "Attach Files"
+                to add.
+              </div>
+            </div>
+          </div>
+
+          <!-- Priority & Assignee Row -->
+          <div class="jira-form-row">
+            <div class="jira-form-group">
+              <label class="jira-label">
+                <span class="label-icon">🔥</span>
+                Priority
+              </label>
+              <div class="jira-searchable-select" data-for="jiraPriority">
+                <input
+                  type="text"
+                  class="jira-search-input"
+                  placeholder="Select priority..."
+                  id="jiraPrioritySearch"
+                />
+                <select id="jiraPriority" class="jira-select">
+                  <option value="">None</option>
+                  <option value="1">🔴 Highest</option>
+                  <option value="2">🟠 High</option>
+                  <option value="3">🟡 Medium</option>
+                  <option value="4">🟢 Low</option>
+                  <option value="5">⚪ Lowest</option>
+                </select>
+                <div
+                  class="jira-dropdown-list hidden"
+                  id="jiraPriorityList"
+                ></div>
+              </div>
+            </div>
+            <div class="jira-form-group">
+              <label class="jira-label">
+                <span class="label-icon">👤</span>
+                Assignee
+              </label>
+              <div class="jira-searchable-select" data-for="jiraAssignee">
+                <input
+                  type="text"
+                  class="jira-search-input"
+                  placeholder="Search assignees..."
+                  id="jiraAssigneeSearch"
+                />
+                <select id="jiraAssignee" class="jira-select">
+                  <option value="">Unassigned</option>
+                </select>
+                <div
+                  class="jira-dropdown-list hidden"
+                  id="jiraAssigneeList"
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Labels -->
+          <div class="jira-form-group full-width">
+            <label class="jira-label">
+              <span class="label-icon">🏷️</span>
+              Labels
+            </label>
+            <input
+              type="text"
+              id="jiraLabels"
+              placeholder="bug, feature, urgent (comma-separated)"
+              class="jira-input"
+            />
+          </div>
+
+          <!-- Epic (Optional) -->
+          <div class="jira-form-group full-width">
+            <label class="jira-label">
+              <span class="label-icon">⚡</span>
+              Epic
+              <span class="jira-optional-hint">(optional)</span>
+            </label>
+            <div class="jira-searchable-select" data-for="jiraEpic">
+              <input
+                type="text"
+                class="jira-search-input"
+                placeholder="Search or select epic..."
+                id="jiraEpicSearch"
+              />
+              <select id="jiraEpic" class="jira-select">
+                <option value="">None</option>
+              </select>
+              <div class="jira-dropdown-list hidden" id="jiraEpicList"></div>
+            </div>
+          </div>
+
+          <!-- Sprint & Story Points Row -->
+          <div class="jira-form-row">
+            <div class="jira-form-group">
+              <label class="jira-label">
+                <span class="label-icon">🏃</span>
+                Sprint
+              </label>
+              <div class="jira-searchable-select" data-for="jiraSprint">
+                <input
+                  type="text"
+                  class="jira-search-input"
+                  placeholder="Select sprint..."
+                  id="jiraSprintSearch"
+                />
+                <select id="jiraSprint" class="jira-select">
+                  <option value="">None</option>
+                </select>
+                <div
+                  class="jira-dropdown-list hidden"
+                  id="jiraSprintList"
+                ></div>
+              </div>
+            </div>
+            <div class="jira-form-group">
+              <label class="jira-label">
+                <span class="label-icon">📊</span>
+                Story Points
+              </label>
+              <input
+                type="number"
+                id="jiraStoryPoints"
+                placeholder="e.g., 3"
+                min="0"
+                step="0.5"
+                class="jira-input"
+              />
+            </div>
+          </div>
+
+          <!-- Insert Link Option -->
+          <div class="jira-link-option">
+            <label class="jira-checkbox-label">
+              <input type="checkbox" id="insertJiraLink" checked />
+              <span class="checkmark"></span>
+              <span class="checkbox-text"
+                >Insert link to issue in note after creation</span
+              >
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer jira-modal-footer">
+          <button id="cancelJiraBtn" class="jira-btn-cancel">Cancel</button>
+          <button id="confirmJiraBtn" class="jira-btn-create">
+            <span class="btn-icon">✓</span>
+            Create Issue
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Link Jira Issue Modal -->
+    <div id="linkJiraIssueModal" class="modal hidden">
+      <div class="modal-content jira-link-modal">
+        <div class="jira-modal-header">
+          <div class="jira-modal-title">
+            <span class="modal-icon">🔗</span>
+            <h3>Link Jira Issue</h3>
+          </div>
+          <button id="closeLinkJiraModalBtn" class="jira-modal-close">
+            &times;
+          </button>
+        </div>
+        <div class="jira-modal-body">
+          <p id="linkJiraModalError" class="jira-modal-error hidden"></p>
+
+          <div class="jira-form-group">
+            <label class="jira-label">
+              <span class="label-icon">🔑</span>
+              Issue Key
+            </label>
+            <input
+              type="text"
+              id="linkJiraIssueKey"
+              placeholder="Enter issue key (e.g., PROJ-123)"
+              class="jira-input"
+              autocomplete="off"
+            />
+            <p class="jira-input-hint">Enter the Jira issue key to link</p>
+          </div>
+
+          <div id="linkJiraPreview" class="jira-link-preview hidden">
+            <div class="preview-header">
+              <span class="preview-icon">📋</span>
+              <span class="preview-title">Issue Preview</span>
+            </div>
+            <div class="preview-content">
+              <div class="preview-key" id="previewIssueKey"></div>
+              <div class="preview-summary" id="previewIssueSummary"></div>
+              <div class="preview-meta">
+                <span class="preview-type" id="previewIssueType"></span>
+                <span class="preview-status" id="previewIssueStatus"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="jira-modal-footer">
+          <button id="cancelLinkJiraBtn" class="jira-btn-cancel">Cancel</button>
+          <button id="confirmLinkJiraBtn" class="jira-btn-create" disabled>
+            <span class="btn-icon">🔗</span>
+            Link Issue
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Jira Help Modal -->
+    <div id="jiraHelpModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>🔑 How to Get Jira API Token</h3>
+          <button id="closeJiraHelpModalBtn" class="btn-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="jira-help-content">
+            <h4>Step-by-step guide:</h4>
+            <ol class="jira-help-steps">
+              <li>
+                <strong>Enter Server URL First</strong>
+                <p>
+                  Enter your Jira server URL in the settings. Once added, you'll
+                  see a direct "Create one here" link below the API token field.
+                </p>
+              </li>
+              <li>
+                <strong>Click the Token Link</strong>
+                <p>
+                  Click the "Create one here" link that appears, or manually
+                  visit your Jira profile settings
+                </p>
+              </li>
+              <li>
+                <strong>Navigate to Security/API Tokens</strong>
+                <p>
+                  Look for "Security" tab or "Personal Access Tokens" section in
+                  your profile
+                </p>
+              </li>
+              <li>
+                <strong>Create API Token</strong>
+                <p>
+                  Click "Create API token" or "Create token" button. Give it a
+                  name like "Work Launcher"
+                </p>
+              </li>
+              <li>
+                <strong>Copy and Paste</strong>
+                <p>
+                  Copy the token immediately (you won't see it again!) and paste
+                  it in the API Token field
+                </p>
+              </li>
+            </ol>
+            <div class="jira-help-note">
+              <strong>💡 Tip:</strong> For Jira Cloud (atlassian.net), use your
+              Atlassian account email. For self-hosted Jira Server/Data Center,
+              use your Jira username.
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="closeJiraHelpBtn" class="btn btn-primary">Got it!</button>
         </div>
       </div>
     </div>

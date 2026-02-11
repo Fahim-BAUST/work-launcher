@@ -2,6 +2,62 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
+## [1.0.28] - 2026-02-11
+
+### Added
+
+- **Jira Epic Field**: Link issues to Epics with searchable dropdown
+  - Loads all epics from selected project
+  - Shows epic key and summary
+  - Optional field - can be left empty
+
+- **Bug-Specific Fields**: Additional fields when creating Bug issues
+  - Steps to Reproduce (textarea with placeholder)
+  - Expected Result 
+  - Actual Result
+  - Environment (optional)
+  - Fields automatically show/hide based on issue type
+  - All fields included in description when creating issue
+
+- **File Attachments in Jira Modal**: Upload any files as attachments
+  - "Attach Files" button to select files from system
+  - Supports images, PDFs, Word docs, Excel, text, zip files
+  - Preview thumbnails for images, file icons for documents
+  - Remove individual attachments before creating issue
+  - Attachments section always visible with helpful placeholder
+
+- **Auto-scroll to Errors**: Modal scrolls to error message on validation failure
+
+### Improved
+
+- **Jira Link Insertion**: Issue link now prepends before selected text
+  - Previously replaced selected text and images
+  - Now inserts link before selection, keeping content intact
+
+- **Jira Links Clickable in View Mode**: Links work in both edit and view modes
+  - Added document-level click handler
+  - Proper CSS pointer-events
+
+- **Toolbar Button Labels**: More descriptive button names
+  - "Create" → "Create Jira Issue"
+  - "Link" → "Add Jira Link"
+
+- **Modal Design Refresh**: Cleaner, more compact design
+  - Subtle header gradient instead of solid blue
+  - Smaller Cancel and Create buttons
+  - Reduced padding and spacing
+  - Better theme support
+
+### Fixed
+
+- **Epic Loading**: Updated to new Jira JQL API endpoint (`/rest/api/3/search/jql`)
+- **Attachment Upload**: Added missing `https` and `http` module imports
+- **File Type Support**: Attachment upload now handles any file type, not just images
+
+### Removed
+
+- **Default Project Key**: Removed from Jira settings (project selected in modal instead)
+
 ## [1.0.27] - 2026-02-11
 
 ### Added
