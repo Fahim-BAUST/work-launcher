@@ -2,6 +2,14 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
+
+## [1.0.29] - 2026-02-11
+
+### Added
+
+- **Jira Epic Field**: Link issues to Epics with searchable dropdown
+  - Enhance Jira link functionality with status updates and styling for resolved issues
+
 ## [1.0.28] - 2026-02-11
 
 ### Added

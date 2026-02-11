@@ -1327,6 +1327,9 @@ function loadNoteToEditor(noteId) {
       tag.title = "Click to remove";
     });
   }, 100);
+
+  // Update Jira link statuses
+  setTimeout(updateJiraLinkStatuses, 100);
 }
 
 // Show empty editor state
@@ -5116,6 +5119,7 @@ if (confirmLinkJiraBtn) {
       linkedIssueData.key,
       issueUrl,
       linkedIssueData.summary,
+      linkedIssueData.status,
     );
 
     showNotification(`Linked ${linkedIssueData.key}`);
@@ -5124,7 +5128,7 @@ if (confirmLinkJiraBtn) {
 }
 
 // Insert Jira link at cursor (without replacing content)
-function insertJiraLinkAtCursor(issueKey, issueUrl, summary) {
+function insertJiraLinkAtCursor(issueKey, issueUrl, summary, status) {
   if (!noteEditor || !isEditMode) return;
 
   noteEditor.focus();
@@ -5133,10 +5137,21 @@ function insertJiraLinkAtCursor(issueKey, issueUrl, summary) {
   link.href = issueUrl;
   link.className = "jira-issue-link";
   link.textContent = `${issueKey}`;
-  link.title = `${summary}\nClick to open in Jira`;
+  link.title = `${summary}\nStatus: ${status || "Unknown"}\nClick to open in Jira`;
   link.target = "_blank";
   link.contentEditable = "false";
   link.dataset.jiraUrl = issueUrl;
+  link.dataset.jiraStatus = status || "";
+
+  // Add resolved/closed class
+  if (
+    status &&
+    (status.toLowerCase() === "resolved" ||
+      status.toLowerCase() === "closed" ||
+      status.toLowerCase() === "done")
+  ) {
+    link.classList.add("jira-issue-resolved");
+  }
 
   // Use saved selection range if available
   if (savedSelectionRange) {
@@ -5706,6 +5721,20 @@ confirmJiraBtn.addEventListener("click", async () => {
     const issueKey = result.issue.key;
     const issueUrl = `${jiraConfig.serverUrl}/browse/${issueKey}`;
 
+    // Fetch issue details to get status
+    let issueStatus = "Open"; // Default status
+    try {
+      const issueDetails = await window.electronAPI.jiraGetIssue(
+        jiraConfig,
+        issueKey,
+      );
+      if (issueDetails.success && issueDetails.issue.fields.status) {
+        issueStatus = issueDetails.issue.fields.status.name;
+      }
+    } catch (statusError) {
+      console.error("Failed to fetch issue status:", statusError);
+    }
+
     // Upload images as attachments
     if (selectedImages.length > 0) {
       confirmJiraBtn.innerHTML = `<span class="btn-icon">📎</span> Uploading ${selectedImages.length} file(s)...`;
@@ -5779,7 +5808,7 @@ confirmJiraBtn.addEventListener("click", async () => {
 
     // Insert link in note if checked
     if (insertJiraLink.checked && isEditMode) {
-      insertJiraLinkInNote(issueKey, issueUrl, summary);
+      insertJiraLinkInNote(issueKey, issueUrl, summary, issueStatus);
     }
 
     const attachmentMsg =
@@ -5796,7 +5825,7 @@ confirmJiraBtn.addEventListener("click", async () => {
   }
 });
 
-function insertJiraLinkInNote(issueKey, issueUrl, summary) {
+function insertJiraLinkInNote(issueKey, issueUrl, summary, status) {
   if (!noteEditor || !isEditMode) return;
 
   noteEditor.focus();
@@ -5805,10 +5834,21 @@ function insertJiraLinkInNote(issueKey, issueUrl, summary) {
   link.href = issueUrl;
   link.className = "jira-issue-link";
   link.textContent = `${issueKey}`;
-  link.title = `${summary}\nClick to open in Jira`;
+  link.title = `${summary}\nStatus: ${status || "Unknown"}\nClick to open in Jira`;
   link.target = "_blank";
   link.contentEditable = "false";
   link.dataset.jiraUrl = issueUrl;
+  link.dataset.jiraStatus = status || "";
+
+  // Add resolved/closed class
+  if (
+    status &&
+    (status.toLowerCase() === "resolved" ||
+      status.toLowerCase() === "closed" ||
+      status.toLowerCase() === "done")
+  ) {
+    link.classList.add("jira-issue-resolved");
+  }
 
   // Use saved selection range if available
   if (savedSelectionRange) {
@@ -5856,6 +5896,71 @@ function insertJiraLinkInNote(issueKey, issueUrl, summary) {
   notesSaveStatus.classList.add("saving");
   clearTimeout(notesDebounceTimer);
   notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+}
+
+// Update Jira link statuses when loading a note
+async function updateJiraLinkStatuses() {
+  const jiraConfig = await window.electronAPI.getJiraConfig();
+  if (!jiraConfig.serverUrl || !jiraConfig.email || !jiraConfig.apiToken) {
+    return; // Jira not configured
+  }
+
+  // Find all Jira links in both editor and read view
+  const links = [
+    ...noteEditor.querySelectorAll(".jira-issue-link"),
+    ...noteReadView.querySelectorAll(".jira-issue-link"),
+  ];
+
+  for (const link of links) {
+    try {
+      // Skip if status already cached
+      if (link.dataset.jiraStatus) {
+        // Apply styling based on cached status
+        const status = link.dataset.jiraStatus.toLowerCase();
+        if (status === "resolved" || status === "closed" || status === "done") {
+          link.classList.add("jira-issue-resolved");
+        }
+        continue;
+      }
+
+      // Extract issue key from link text or href
+      const issueKey = link.textContent.trim();
+      if (!issueKey) continue;
+
+      // Fetch issue status
+      const result = await window.electronAPI.jiraGetIssue(
+        jiraConfig,
+        issueKey,
+      );
+      if (result.success && result.issue.fields.status) {
+        const status = result.issue.fields.status.name;
+        link.dataset.jiraStatus = status;
+
+        // Update title to include status
+        const currentTitle = link.title || "";
+        if (!currentTitle.includes("Status:")) {
+          link.title = currentTitle.replace(
+            /\\nClick to open/,
+            `\\nStatus: ${status}\\nClick to open`,
+          );
+        }
+
+        // Apply styling for resolved/closed issues
+        const statusLower = status.toLowerCase();
+        if (
+          statusLower === "resolved" ||
+          statusLower === "closed" ||
+          statusLower === "done"
+        ) {
+          link.classList.add("jira-issue-resolved");
+        } else {
+          link.classList.remove("jira-issue-resolved");
+        }
+      }
+    } catch (error) {
+      console.error("Failed to update Jira link status:", error);
+    }
+  }
 }
 
 // Handle Jira link clicks - open in external browser
