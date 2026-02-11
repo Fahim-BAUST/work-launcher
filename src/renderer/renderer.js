@@ -5131,7 +5131,9 @@ if (confirmLinkJiraBtn) {
 function insertJiraLinkAtCursor(issueKey, issueUrl, summary, status) {
   if (!noteEditor || !isEditMode) return;
 
-  noteEditor.focus();
+  // Store current scroll position
+  const scrollTop = noteEditor.scrollTop;
+  const scrollLeft = noteEditor.scrollLeft;
 
   const link = document.createElement("a");
   link.href = issueUrl;
@@ -5178,6 +5180,17 @@ function insertJiraLinkAtCursor(issueKey, issueUrl, summary, status) {
     selection.addRange(range);
 
     savedSelectionRange = null;
+
+    // Restore scroll position
+    noteEditor.scrollTop = scrollTop;
+    noteEditor.scrollLeft = scrollLeft;
+
+    // Ensure the link is visible without jumping
+    link.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "nearest",
+    });
   } else {
     // Fallback: append at end
     const spaceBefore = document.createTextNode(" ");
@@ -5185,6 +5198,10 @@ function insertJiraLinkAtCursor(issueKey, issueUrl, summary, status) {
     noteEditor.appendChild(link);
     const spaceAfter = document.createTextNode(" ");
     noteEditor.appendChild(spaceAfter);
+
+    // Restore scroll position for fallback case too
+    noteEditor.scrollTop = scrollTop;
+    noteEditor.scrollLeft = scrollLeft;
   }
 
   // Trigger save
@@ -5828,7 +5845,9 @@ confirmJiraBtn.addEventListener("click", async () => {
 function insertJiraLinkInNote(issueKey, issueUrl, summary, status) {
   if (!noteEditor || !isEditMode) return;
 
-  noteEditor.focus();
+  // Store current scroll position
+  const scrollTop = noteEditor.scrollTop;
+  const scrollLeft = noteEditor.scrollLeft;
 
   const link = document.createElement("a");
   link.href = issueUrl;
@@ -5882,6 +5901,17 @@ function insertJiraLinkInNote(issueKey, issueUrl, summary, status) {
     selection.addRange(newRange);
 
     savedSelectionRange = null;
+
+    // Restore scroll position
+    noteEditor.scrollTop = scrollTop;
+    noteEditor.scrollLeft = scrollLeft;
+
+    // Ensure the link is visible without jumping
+    link.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "nearest",
+    });
   } else {
     // Fallback: append at end of editor content
     const spaceBefore = document.createTextNode(" ");
@@ -5889,6 +5919,10 @@ function insertJiraLinkInNote(issueKey, issueUrl, summary, status) {
     noteEditor.appendChild(link);
     const spaceAfter = document.createTextNode(" ");
     noteEditor.appendChild(spaceAfter);
+
+    // Restore scroll position for fallback case too
+    noteEditor.scrollTop = scrollTop;
+    noteEditor.scrollLeft = scrollLeft;
   }
 
   // Trigger save

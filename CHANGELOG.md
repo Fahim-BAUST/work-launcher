@@ -2,13 +2,16 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
-
 ## [1.0.29] - 2026-02-11
 
 ### Added
 
-- **Jira Epic Field**: Link issues to Epics with searchable dropdown
-  - Enhance Jira link functionality with status updates and styling for resolved issues
+- Enhance Jira link functionality with status updates and styling for resolved issues
+- Added functionality to preserve scroll position when inserting Jira links in the note editor.
+- Ensured that newly inserted links are visible without causing a jump in the scroll position.
+- Updated styles for selected notes count, notes list panel, note items, and various buttons to improve visual appeal and consistency.
+- Enhanced the Jira modal design with improved animations, gradients, and hover effects.
+- Adjusted padding, margins, and font sizes across multiple components for better usability and aesthetics.
 
 ## [1.0.28] - 2026-02-11
 
