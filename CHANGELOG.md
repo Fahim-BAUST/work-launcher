@@ -2,6 +2,12 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
+## [1.0.31] - 2026-02-11
+
+### Added
+- Increase z-index for footer to ensure proper stacking context
+
+
 ## [1.0.30] - 2026-02-11
 
 ### Added
