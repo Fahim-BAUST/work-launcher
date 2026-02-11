@@ -1011,6 +1011,24 @@
                 <!-- Note Editor -->
                 <div id="noteEditorPanel" class="note-editor-panel">
                   <div class="note-title-row">
+                    <button
+                      id="toggleNotesSidebarBtn"
+                      class="btn btn-secondary btn-sm toggle-sidebar-btn"
+                      title="Hide Sidebar"
+                    >
+                      <span class="icon icon-sm"
+                        ><svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <rect x="3" y="3" width="18" height="18" rx="2" />
+                          <line x1="9" x2="9" y1="3" y2="21" /></svg
+                      ></span>
+                    </button>
                     <input
                       type="text"
                       id="noteTitleInput"
@@ -1018,6 +1036,25 @@
                       class="note-title-input"
                     />
                     <div class="note-title-actions">
+                      <button
+                        id="toggleNotesFullscreenBtn"
+                        class="btn btn-secondary btn-sm"
+                        title="Toggle Fullscreen"
+                      >
+                        <span class="icon icon-sm"
+                          ><svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <path
+                              d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"
+                            /></svg
+                        ></span>
+                      </button>
                       <button
                         id="toggleEditModeBtn"
                         class="btn btn-secondary btn-sm"
@@ -1811,6 +1848,153 @@
                         <strong>Download as PDF</strong> - Export current note
                         as PDF
                       </li>
+                    </ul>
+                  </div>
+                  <div class="help-item">
+                    <h3>📐 Sidebar & Fullscreen</h3>
+                    <ul>
+                      <li>
+                        <strong>Collapse Sidebar</strong> - Click the sidebar
+                        toggle button (left side) to minimize notes list to
+                        compact view
+                      </li>
+                      <li>
+                        <strong>Button Colors</strong> - Green when collapsed,
+                        blue when expanded
+                      </li>
+                      <li>
+                        <strong>Fullscreen Mode</strong> - Click fullscreen
+                        button for distraction-free writing
+                      </li>
+                      <li>
+                        <strong>Exit Fullscreen</strong> - Press
+                        <kbd>ESC</kbd> key to exit fullscreen
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Jira Integration Help -->
+              <div class="help-card">
+                <h2 class="help-title">
+                  <span class="help-icon">🎫</span>
+                  Jira Integration
+                </h2>
+                <div class="help-content">
+                  <div class="help-item">
+                    <h3>🔧 Configuration</h3>
+                    <p>
+                      Configure Jira in
+                      <strong>Settings → Jira Integration</strong>:
+                    </p>
+                    <ul>
+                      <li>
+                        <strong>Server URL</strong> - Your Jira instance URL
+                        (e.g., https://yourcompany.atlassian.net)
+                      </li>
+                      <li><strong>Email</strong> - Your Jira account email</li>
+                      <li>
+                        <strong>API Token</strong> - Generate from Jira Account
+                        Settings → Security → API Tokens
+                      </li>
+                    </ul>
+                  </div>
+                  <div class="help-item">
+                    <h3>🎫 Create Jira Issue</h3>
+                    <p>
+                      Select text in note editor, then click
+                      <strong>🎫 Create Jira Issue</strong>:
+                    </p>
+                    <ul>
+                      <li>
+                        <strong>Project</strong> - Select from your accessible
+                        projects
+                      </li>
+                      <li>
+                        <strong>Issue Type</strong> - Story, Task, Bug, Epic,
+                        etc.
+                      </li>
+                      <li>
+                        <strong>Summary</strong> - Brief issue title
+                        (auto-filled from selection)
+                      </li>
+                      <li>
+                        <strong>Description</strong> - Detailed information
+                      </li>
+                      <li>
+                        <strong>Priority</strong> - Highest, High, Medium, Low,
+                        Lowest
+                      </li>
+                      <li>
+                        <strong>Epic Link</strong> (optional) - Associate issue
+                        with an Epic
+                      </li>
+                      <li>
+                        <strong>Attachments</strong> - Upload images, PDFs,
+                        documents, etc.
+                      </li>
+                    </ul>
+                  </div>
+                  <div class="help-item">
+                    <h3>🐛 Bug-Specific Fields</h3>
+                    <p>When creating a Bug issue, additional fields appear:</p>
+                    <ul>
+                      <li>
+                        <strong>Steps to Reproduce</strong> - Detailed
+                        reproduction steps
+                      </li>
+                      <li>
+                        <strong>Expected Result</strong> - What should happen
+                      </li>
+                      <li>
+                        <strong>Actual Result</strong> - What actually happens
+                      </li>
+                      <li>
+                        <strong>Environment</strong> (optional) - OS, browser,
+                        version info
+                      </li>
+                    </ul>
+                  </div>
+                  <div class="help-item">
+                    <h3>🔗 Link Existing Issue</h3>
+                    <p>
+                      Click <strong>🔗 Add Jira Link</strong> to reference an
+                      existing issue:
+                    </p>
+                    <ul>
+                      <li>Enter issue key (e.g., PROJ-123)</li>
+                      <li>Link is inserted with clickable format</li>
+                      <li>Status automatically fetched and displayed</li>
+                    </ul>
+                  </div>
+                  <div class="help-item">
+                    <h3>✅ Issue Status Tracking</h3>
+                    <p>Jira links automatically display issue status:</p>
+                    <ul>
+                      <li>
+                        <strong>Resolved/Closed/Done</strong> - Green
+                        strikethrough with checkmark ✓
+                      </li>
+                      <li>
+                        <strong>Active Issues</strong> - Standard link
+                        formatting
+                      </li>
+                      <li>Status updates automatically when note is opened</li>
+                      <li>Click any Jira link to open in browser</li>
+                    </ul>
+                  </div>
+                  <div class="help-item">
+                    <h3>📎 File Attachments</h3>
+                    <p>Upload files when creating Jira issues:</p>
+                    <ul>
+                      <li>Click <strong>Attach Files</strong> button</li>
+                      <li>
+                        Supports: Images (PNG, JPG), PDFs, Word, Excel, Text,
+                        ZIP
+                      </li>
+                      <li>Preview thumbnails for images</li>
+                      <li>Remove attachments before creating issue</li>
                     </ul>
                   </div>
                 </div>

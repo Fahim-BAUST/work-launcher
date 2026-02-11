@@ -1795,8 +1795,11 @@ function setupIpcHandlers() {
           },
         });
 
-        // Create HTML content for the PDF
-        const htmlContent = `
+        let tempHtmlPath = null;
+
+        try {
+          // Create HTML content for the PDF
+          const htmlContent = `
         <!DOCTYPE html>
         <html>
         <head>
@@ -1968,41 +1971,57 @@ function setupIpcHandlers() {
         </html>
       `;
 
-        // Clean the note content to remove inline color styles that might cause visibility issues
-        // This handles CSS variables, font tags with color, and light colors from dark mode
-        let cleanedContent = (noteContent || "")
-          // Remove CSS variable color references (but not background-color or border-color)
-          .replace(/([^-])color:\s*var\([^)]+\);?/gi, "$1")
-          // Remove font tags' color attribute but keep the content
-          .replace(/<font[^>]*\scolor="[^"]*"[^>]*>/gi, "<span>")
-          .replace(/<\/font>/gi, "</span>")
-          // Remove inline text color styles (not background-color or border-color)
-          .replace(/([;"\s])color:\s*[^;"]+;?/gi, "$1")
-          // Clean up empty style attributes
-          .replace(/style="\s*;?\s*"/gi, "");
+          // Clean the note content to remove inline color styles that might cause visibility issues
+          // This handles CSS variables, font tags with color, and light colors from dark mode
+          let cleanedContent = (noteContent || "")
+            // Remove CSS variable color references (but not background-color or border-color)
+            .replace(/([^-])color:\s*var\([^)]+\);?/gi, "$1")
+            // Remove font tags' color attribute but keep the content
+            .replace(/<font[^>]*\scolor="[^"]*"[^>]*>/gi, "<span>")
+            .replace(/<\/font>/gi, "</span>")
+            // Remove inline text color styles (not background-color or border-color)
+            .replace(/([;"\s])color:\s*[^;"]+;?/gi, "$1")
+            // Clean up empty style attributes
+            .replace(/style="\s*;?\s*"/gi, "");
 
-        // Insert cleaned content into template
-        const finalHtml = htmlContent.replace(
-          "__NOTE_CONTENT_PLACEHOLDER__",
-          cleanedContent,
-        );
+          // Insert cleaned content into template
+          const finalHtml = htmlContent.replace(
+            "__NOTE_CONTENT_PLACEHOLDER__",
+            cleanedContent,
+          );
 
-        await pdfWindow.loadURL(
-          `data:text/html;charset=utf-8,${encodeURIComponent(finalHtml)}`,
-        );
+          // Write HTML to a temporary file (data URLs are blocked by Electron for security)
+          tempHtmlPath = path.join(
+            app.getPath("temp"),
+            `note-${Date.now()}.html`,
+          );
+          fs.writeFileSync(tempHtmlPath, finalHtml, "utf-8");
 
-        const pdfData = await pdfWindow.webContents.printToPDF({
-          marginType: 0,
-          printBackground: true,
-          printSelectionOnly: false,
-          landscape: false,
-          pageSize: "A4",
-        });
+          // Load the temporary HTML file
+          await pdfWindow.loadFile(tempHtmlPath);
 
-        fs.writeFileSync(result.filePath, pdfData);
-        pdfWindow.close();
+          const pdfData = await pdfWindow.webContents.printToPDF({
+            marginType: 0,
+            printBackground: true,
+            printSelectionOnly: false,
+            landscape: false,
+            pageSize: "A4",
+          });
 
-        return { success: true, path: result.filePath };
+          fs.writeFileSync(result.filePath, pdfData);
+
+          return { success: true, path: result.filePath };
+        } finally {
+          // Clean up temporary file and window
+          pdfWindow.close();
+          if (tempHtmlPath && fs.existsSync(tempHtmlPath)) {
+            try {
+              fs.unlinkSync(tempHtmlPath);
+            } catch (cleanupError) {
+              console.error("Failed to clean up temp file:", cleanupError);
+            }
+          }
+        }
       } catch (error) {
         return { success: false, error: error.message };
       }

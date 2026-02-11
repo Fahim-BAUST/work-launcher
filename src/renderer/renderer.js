@@ -84,6 +84,10 @@ const notesSaveStatus = document.getElementById("notesSaveStatus");
 const noteUpdatedAt = document.getElementById("noteUpdatedAt");
 const addNoteBtn = document.getElementById("addNoteBtn");
 const deleteNoteBtn = document.getElementById("deleteNoteBtn");
+const toggleNotesSidebarBtn = document.getElementById("toggleNotesSidebarBtn");
+const toggleNotesFullscreenBtn = document.getElementById(
+  "toggleNotesFullscreenBtn",
+);
 
 // Edit mode state
 let isEditMode = true;
@@ -1500,6 +1504,67 @@ toggleEditModeBtn.addEventListener("click", () => {
   }
 });
 
+// Toggle notes sidebar
+if (toggleNotesSidebarBtn) {
+  toggleNotesSidebarBtn.addEventListener("click", () => {
+    const notesLayout = document.querySelector(".notes-layout");
+    if (notesLayout) {
+      const isCollapsed = notesLayout.classList.toggle("sidebar-collapsed");
+
+      // Update button state class
+      if (isCollapsed) {
+        toggleNotesSidebarBtn.classList.add("collapsed");
+      } else {
+        toggleNotesSidebarBtn.classList.remove("collapsed");
+      }
+
+      // Update button icon
+      const icon = toggleNotesSidebarBtn.querySelector(".icon svg");
+      if (icon) {
+        if (isCollapsed) {
+          // Show right-pointing bars icon when collapsed (to indicate expand action)
+          icon.innerHTML =
+            '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" x2="15" y1="3" y2="21"/>';
+        } else {
+          // Show left-pointing bars icon when expanded (to indicate collapse action)
+          icon.innerHTML =
+            '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" x2="9" y1="3" y2="21"/>';
+        }
+      }
+      toggleNotesSidebarBtn.title = isCollapsed
+        ? "Show Sidebar"
+        : "Hide Sidebar";
+    }
+  });
+}
+
+// Toggle notes fullscreen
+if (toggleNotesFullscreenBtn) {
+  toggleNotesFullscreenBtn.addEventListener("click", () => {
+    const notesSection = document.querySelector(".notes-tab-section");
+    if (notesSection) {
+      const isFullscreen = notesSection.classList.toggle("fullscreen");
+
+      // Update button icon/title
+      const icon = toggleNotesFullscreenBtn.querySelector(".icon svg");
+      if (icon) {
+        if (isFullscreen) {
+          // Show minimize/exit fullscreen icon
+          icon.innerHTML =
+            '<path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>';
+        } else {
+          // Show maximize/fullscreen icon
+          icon.innerHTML =
+            '<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>';
+        }
+      }
+      toggleNotesFullscreenBtn.title = isFullscreen
+        ? "Exit Fullscreen"
+        : "Toggle Fullscreen";
+    }
+  });
+}
+
 // Search notes
 notesSearchInput.addEventListener("input", (e) => {
   notesSearchQuery = e.target.value.trim();
@@ -2579,6 +2644,21 @@ document.addEventListener("keydown", (e) => {
       zoomOut();
     } else if (e.key === "0") {
       resetZoom();
+    }
+  } else if (e.key === "Escape") {
+    // Exit fullscreen mode for notes
+    const notesSection = document.querySelector(".notes-tab-section");
+    if (notesSection && notesSection.classList.contains("fullscreen")) {
+      notesSection.classList.remove("fullscreen");
+      if (toggleNotesFullscreenBtn) {
+        toggleNotesFullscreenBtn.title = "Toggle Fullscreen";
+        // Reset icon to maximize/fullscreen
+        const icon = toggleNotesFullscreenBtn.querySelector(".icon svg");
+        if (icon) {
+          icon.innerHTML =
+            '<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>';
+        }
+      }
     }
   }
 });

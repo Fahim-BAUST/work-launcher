@@ -2,6 +2,65 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
+## [1.0.30] - 2026-02-11
+
+### Added
+
+- **Collapsible Sidebar**: Notes sidebar can now be collapsed to 60px minimal width
+  - Shows attractive note indicators with glowing vertical bars
+  - Enhanced visual feedback with scale animations and color transitions
+  - Active note has prominent glow effect with enhanced borders
+  - Toggle button on left side with state-based colors (green when collapsed, blue when expanded)
+  - Properly sized drag handles remain visible and interactive
+
+- **Fullscreen Mode**: Notes editor now supports fullscreen mode
+  - Dedicated fullscreen button in note editor toolbar
+  - Press ESC key to exit fullscreen
+  - Optimal focus for distraction-free writing
+
+- **Jira Status Tracking**: Enhanced Jira link functionality
+  - Automatically fetches and displays issue status for all Jira links
+  - Visual differentiation for resolved/closed/done issues (green strikethrough with checkmark)
+  - Status updates on note load and after link insertion
+  - Improves productivity by showing issue state at a glance
+
+### Improved
+
+- **Modal Design**: Complete glassmorphism redesign for modern appearance
+  - Jira Integration modal with smooth animations and enhanced hover effects
+  - Notes dialog with card-based layout and gradient backgrounds
+  - Better visual hierarchy and spacing throughout
+  - Enhanced input fields with focus glow effects
+
+- **Sidebar Collapse**: Redesigned collapsed state for better aesthetics
+  - 60px width with gradient background
+  - Note items displayed as 44x44px rounded boxes
+  - Vertical indicator bars animate on hover
+  - Active note has enhanced glow and gradient
+  - Improved drag handle visibility and interactivity
+
+- **Responsive Layout**: Better handling of small window sizes
+  - Note title row uses flex-wrap for button visibility
+  - Buttons remain accessible when window is resized
+  - Proper spacing maintained across different screen sizes
+
+### Fixed
+
+- **PDF Export**: Resolved ERR_INVALID_URL error during PDF export
+  - Changed from blocked data URLs to temporary file approach
+  - PDF generation now uses secure file-based method
+  - Proper cleanup of temporary files after export
+  - Maintains all formatting and styles in exported PDFs
+
+- **Scroll Position**: Fixed cursor jumping to top after creating Jira issue
+  - Scroll position now preserved during link insertion
+  - Links inserted at correct cursor position
+  - Smooth user experience when adding Jira references
+
+- **Checkbox Overlap**: Fixed checkbox overlapping note titles in sidebar
+  - Added appropriate padding to prevent visual conflicts
+  - Improved spacing for better readability
+
 ## [1.0.29] - 2026-02-11
 
 ### Added

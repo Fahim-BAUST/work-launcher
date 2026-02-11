@@ -36,7 +36,17 @@ A powerful Electron desktop application for Windows that automatically launches 
   - Quote blocks with one-click removal
   - Image support (paste, drag & drop) with overlay controls
   - Image keyboard shortcuts (Ctrl+C/X, Delete)
-- **Help Tab** - Built-in usage guides for all features
+  - Collapsible sidebar for focused writing
+  - Fullscreen mode with ESC key exit
+  - Export notes as beautifully formatted PDFs
+- **Jira Integration** - Seamlessly connect your notes to Jira:
+  - Create Jira issues directly from note selections
+  - Link existing issues with automatic status tracking
+  - Bug-specific fields (Steps to Reproduce, Expected/Actual Result)
+  - Epic linking and file attachments support
+  - Visual status indicators (resolved issues shown with strikethrough)
+  - One-click access to issues in browser
+- **Help Tab** - Built-in comprehensive usage guides for all features
 - **Import/Export** - Backup and restore your settings
 - **Dark/Light Theme** - Choose your preferred theme
 
@@ -130,6 +140,25 @@ npm run build
 5. Insert quote blocks with the quote button (press Enter twice to exit)
 6. Insert images by pasting or drag & drop
 7. Manage images with overlay controls (view, copy, delete) or keyboard shortcuts
+8. **Collapse sidebar** - Click the toggle button to minimize the notes list for focused writing
+9. **Fullscreen mode** - Click fullscreen button or press ESC to exit
+10. **Export to PDF** - Download current note as a beautifully formatted PDF document
+
+### Jira Integration
+
+1. Configure Jira credentials in **Settings → Jira Integration**:
+   - Server URL (e.g., https://yourcompany.atlassian.net)
+   - Email address
+   - API Token (generate from Jira Account Settings)
+2. **Create Issues**: Select text in notes, click "🎫 Create Jira Issue"
+   - Choose project, issue type, and priority
+   - Auto-filled summary from selection
+   - Bug-specific fields for detailed reporting
+   - Link to Epics and attach files
+3. **Link Issues**: Click "🔗 Add Jira Link" to reference existing issues
+   - Automatic status tracking (resolved issues shown with green strikethrough)
+   - One-click access to open issue in browser
+4. All Jira links update status automatically when notes are opened
 
 ### Help
 
