@@ -3492,62 +3492,87 @@ saveBtn.addEventListener("click", async () => {
  * Convert markdown to simple HTML for release notes
  */
 function markdownToHtml(markdown) {
-  if (!markdown) return "<p>No release notes available.</p>";
+  if (!markdown)
+    return "<p class='release-notes-empty'>No release notes available.</p>";
 
   // Remove the version header line (e.g., "## [1.0.18] - 2026-02-08")
   let cleaned = markdown.replace(/^## \[[\d.]+\].*$/gm, "").trim();
 
   // If empty after removing header, return message
-  if (!cleaned) return "<p>No release notes available.</p>";
+  if (!cleaned)
+    return "<p class='release-notes-empty'>No release notes available.</p>";
 
   return (
     cleaned
-      // Convert section headers (### Added, ### Fixed, etc.) to styled badges
-      .replace(
-        /^### (Added)$/gm,
-        '<div class="changelog-category changelog-added">✨ Added</div>',
-      )
-      .replace(
-        /^### (Fixed)$/gm,
-        '<div class="changelog-category changelog-fixed">🔧 Fixed</div>',
-      )
-      .replace(
-        /^### (Changed)$/gm,
-        '<div class="changelog-category changelog-changed">🔄 Changed</div>',
-      )
-      .replace(
-        /^### (Removed)$/gm,
-        '<div class="changelog-category changelog-removed">🗑️ Removed</div>',
-      )
-      .replace(
-        /^### (Improved)$/gm,
-        '<div class="changelog-category changelog-improved">⚡ Improved</div>',
-      )
-      .replace(
-        /^### (Security)$/gm,
-        '<div class="changelog-category changelog-security">🔒 Security</div>',
-      )
-      .replace(/^### (.+)$/gm, '<div class="changelog-category">$1</div>')
-      // Other headers
-      .replace(/^## (.+)$/gm, '<h4 class="release-notes-h4">$1</h4>')
-      .replace(/^# (.+)$/gm, '<h3 class="release-notes-h3">$1</h3>')
-      // Bold
-      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      // Italic
-      .replace(/\*(.+?)\*/g, "<em>$1</em>")
-      // Code
-      .replace(/`(.+?)`/g, "<code>$1</code>")
-      // Unordered lists - convert to styled list items
-      .replace(/^- (.+)$/gm, '<li class="changelog-item">$1</li>')
-      // Wrap consecutive <li> tags in <ul>
-      .replace(
-        /(<li class="changelog-item">.*<\/li>\n?)+/g,
-        '<ul class="changelog-list">$&</ul>',
-      )
-      // Clean up extra whitespace between elements
-      .replace(/\n{2,}/g, "\n")
-      // Remove empty lines that become <br>
-      .replace(/^\s*$/gm, "")
+      // Line breaks to paragraphs (handle both single and multiple breaks)
+      .split(/\n\n+/)
+      .map((section) => {
+        // Convert section headers (### Added, ### Fixed, etc.) to styled badges
+        section = section
+          .replace(
+            /^### (Added)$/gm,
+            '<div class="changelog-category changelog-added">✨ Added</div>',
+          )
+          .replace(
+            /^### (Fixed)$/gm,
+            '<div class="changelog-category changelog-fixed">🔧 Fixed</div>',
+          )
+          .replace(
+            /^### (Changed)$/gm,
+            '<div class="changelog-category changelog-changed">🔄 Changed</div>',
+          )
+          .replace(
+            /^### (Removed)$/gm,
+            '<div class="changelog-category changelog-removed">🗑️ Removed</div>',
+          )
+          .replace(
+            /^### (Improved)$/gm,
+            '<div class="changelog-category changelog-improved">⚡ Improved</div>',
+          )
+          .replace(
+            /^### (Security)$/gm,
+            '<div class="changelog-category changelog-security">🔒 Security</div>',
+          )
+          .replace(/^### (.+)$/gm, '<div class="changelog-category">$1</div>')
+          // Other headers
+          .replace(/^## (.+)$/gm, '<h4 class="release-notes-h4">$1</h4>')
+          .replace(/^# (.+)$/gm, '<h3 class="release-notes-h3">$1</h3>');
+
+        // Handle lists
+        const hasListItems = /^- /m.test(section);
+        if (hasListItems) {
+          section = section
+            .replace(/^- (.+)$/gm, '<li class="changelog-item">$1</li>')
+            .replace(
+              /(<li class="changelog-item">.*?<\/li>)/s,
+              '<ul class="changelog-list">$1</ul>',
+            );
+        }
+
+        // Bold
+        section = section.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+        // Italic
+        section = section.replace(/\*(.+?)\*/g, "<em>$1</em>");
+        // Code
+        section = section.replace(/`(.+?)`/g, "<code>$1</code>");
+        // Links
+        section = section.replace(
+          /\[(.+?)\]\((.+?)\)/g,
+          '<a href="$2" class="release-notes-link" target="_blank">$1</a>',
+        );
+
+        // If section is not a list or badge, wrap in paragraph
+        if (
+          !section.includes("<ul") &&
+          !section.includes('<div class="changelog-category') &&
+          !section.includes("<h")
+        ) {
+          section = `<p class="release-notes-p">${section}</p>`;
+        }
+
+        return section;
+      })
+      .join("")
   );
 }
 
@@ -5368,7 +5393,7 @@ function toggleInsertMenu(menu, btn) {
     const searchInput = menu.querySelector("input");
     if (searchInput) {
       searchInput.value = "";
-      searchInput.focus();
+      searchInput.focus({ preventScroll: true });
     }
   }
 }
@@ -5436,6 +5461,10 @@ function renderInsertProjects(projects, filter = "") {
 
   // Add click handlers
   projectInsertList.querySelectorAll(".jira-insert-item").forEach((item) => {
+    // Prevent mousedown from stealing focus and causing scroll
+    item.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+    });
     item.addEventListener("click", async () => {
       const key = item.dataset.key;
       const name = item.dataset.name;
@@ -5524,6 +5553,10 @@ function renderInsertUsers(users, filter = "") {
 
   // Add click handlers
   assigneeInsertList.querySelectorAll(".jira-insert-item").forEach((item) => {
+    // Prevent mousedown from stealing focus and causing scroll
+    item.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+    });
     item.addEventListener("click", () => {
       const name = item.dataset.name;
       insertTextAtCursor(`👤 ${name}`, "assignee", null);
@@ -5599,6 +5632,10 @@ function renderInsertEpics(epics, filter = "") {
 
   // Add click handlers
   epicInsertList.querySelectorAll(".jira-insert-item").forEach((item) => {
+    // Prevent mousedown from stealing focus and causing scroll
+    item.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+    });
     item.addEventListener("click", () => {
       const key = item.dataset.key;
       const summary = item.dataset.summary;
@@ -5613,8 +5650,14 @@ function renderInsertEpics(epics, filter = "") {
 function insertTextAtCursor(text, type = "default", extraData = null) {
   if (!noteEditor || !isEditMode) return;
 
-  // Ensure we're inserting into the noteEditor only
-  noteEditor.focus();
+  // Save scroll position before focusing
+  const scrollTop = noteEditor.scrollTop;
+  const parentScrollTop = noteEditor.parentElement
+    ? noteEditor.parentElement.scrollTop
+    : 0;
+
+  // Ensure we're inserting into the noteEditor only (prevent scroll on focus)
+  noteEditor.focus({ preventScroll: true });
 
   const selection = window.getSelection();
   let range;
@@ -5703,6 +5746,12 @@ function insertTextAtCursor(text, type = "default", extraData = null) {
   range.collapse(true);
   selection.removeAllRanges();
   selection.addRange(range);
+
+  // Restore scroll position (selection.addRange may have scrolled)
+  noteEditor.scrollTop = scrollTop;
+  if (noteEditor.parentElement) {
+    noteEditor.parentElement.scrollTop = parentScrollTop;
+  }
 
   savedSelectionRange = null;
 

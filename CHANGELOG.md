@@ -2,6 +2,14 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
+## [1.0.33] - 2026-02-12
+
+### Fixed
+- Fixed scroll position preservation in toolbar dropdowns
+  - When inserting project, assignee, or epic from note toolbar, the note no longer scrolls to top
+  - Uses `preventScroll` option on focus events and restores scroll position after DOM manipulation
+  - Added mousedown preventDefault on dropdown items to prevent focus stealing
+
 ## [1.0.32] - 2026-02-12
 
 ### Added
