@@ -1297,7 +1297,7 @@ function setupIpcHandlers() {
         "POST",
         {
           jql: `project = ${projectKey} AND issuetype = Epic ORDER BY created DESC`,
-          fields: ["summary", "status"],
+          fields: ["summary", "status", "assignee", "description"],
           maxResults: 100,
         },
       );
@@ -1305,6 +1305,10 @@ function setupIpcHandlers() {
         key: issue.key,
         summary: issue.fields.summary,
         status: issue.fields.status?.name || "Unknown",
+        assignee: issue.fields.assignee?.displayName || "Unassigned",
+        description: issue.fields.description
+          ? extractADFText(issue.fields.description)
+          : "No description",
       }));
       return { success: true, epics };
     } catch (error) {
@@ -1312,6 +1316,42 @@ function setupIpcHandlers() {
       return { success: false, error: error.message, epics: [] };
     }
   });
+
+  // Helper function to extract plain text from Jira ADF format
+  function extractADFText(adf) {
+    if (!adf || typeof adf === "string") {
+      return adf || "";
+    }
+
+    let text = "";
+
+    function processNode(node) {
+      if (!node) return;
+
+      if (node.type === "text") {
+        text += node.text || "";
+      } else if (node.type === "hardBreak") {
+        text += "\n";
+      } else if (node.type === "paragraph") {
+        if (node.content) {
+          node.content.forEach(processNode);
+        }
+        text += "\n";
+      } else if (node.content && Array.isArray(node.content)) {
+        node.content.forEach(processNode);
+      }
+    }
+
+    if (adf.content && Array.isArray(adf.content)) {
+      adf.content.forEach(processNode);
+    }
+
+    // Limit to 300 characters for tooltip
+    const trimmed = text.trim();
+    return trimmed.length > 300
+      ? trimmed.substring(0, 300) + "..."
+      : trimmed || "No description";
+  }
 
   // Create Jira issue
   ipcMain.handle("jira-create-issue", async (event, config, issueData) => {
@@ -1333,7 +1373,7 @@ function setupIpcHandlers() {
     try {
       const result = await jiraApiRequest(
         config,
-        `/rest/api/3/issue/${issueKey}?fields=summary,issuetype,status`,
+        `/rest/api/3/issue/${issueKey}?fields=summary,issuetype,status,assignee,project,parent,description`,
       );
       return { success: true, issue: result };
     } catch (error) {

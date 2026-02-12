@@ -2,6 +2,20 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
+## [1.0.32] - 2026-02-12
+
+### Added
+- **Jira Issue Link Hover Tooltips**: Enhanced Jira link functionality
+  - Hover over any Jira issue link (e.g., PROJ-123) to see comprehensive issue details
+  - Tooltip displays issue key, type, summary, status, assignee, project, and epic
+  - Description section with scrollable content for detailed information
+  - Professional gradient header with blue theme matching Jira styling
+  - Smooth animations and transitions for polished user experience
+  - Full dark and light theme support
+  - Loading state while fetching issue details from Jira API
+  - Error handling with user-friendly error messages
+  - Works in both edit and read-only note views
+
 ## [1.0.31] - 2026-02-11
 
 ### Added

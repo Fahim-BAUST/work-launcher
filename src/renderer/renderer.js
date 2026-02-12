@@ -1334,6 +1334,9 @@ function loadNoteToEditor(noteId) {
 
   // Update Jira link statuses
   setTimeout(updateJiraLinkStatuses, 100);
+
+  // Add remove buttons to existing jira-inserted-tag elements
+  setTimeout(addRemoveButtonsToExistingTags, 100);
 }
 
 // Show empty editor state
@@ -4040,6 +4043,12 @@ const previewIssueKey = document.getElementById("previewIssueKey");
 const previewIssueSummary = document.getElementById("previewIssueSummary");
 const previewIssueType = document.getElementById("previewIssueType");
 const previewIssueStatus = document.getElementById("previewIssueStatus");
+const previewIssueAssignee = document.getElementById("previewIssueAssignee");
+const previewIssueProject = document.getElementById("previewIssueProject");
+const previewIssueEpic = document.getElementById("previewIssueEpic");
+const previewIssueDescription = document.getElementById(
+  "previewIssueDescription",
+);
 const createJiraIssueModal = document.getElementById("createJiraIssueModal");
 const closeJiraModalBtn = document.getElementById("closeJiraModalBtn");
 const cancelJiraBtn = document.getElementById("cancelJiraBtn");
@@ -4061,6 +4070,20 @@ const jiraEpic = document.getElementById("jiraEpic");
 const jiraSprint = document.getElementById("jiraSprint");
 const jiraStoryPoints = document.getElementById("jiraStoryPoints");
 const insertJiraLink = document.getElementById("insertJiraLink");
+
+// Jira quick-insert dropdown elements
+const insertProjectBtn = document.getElementById("insertProjectBtn");
+const projectInsertMenu = document.getElementById("projectInsertMenu");
+const projectInsertSearch = document.getElementById("projectInsertSearch");
+const projectInsertList = document.getElementById("projectInsertList");
+const insertAssigneeBtn = document.getElementById("insertAssigneeBtn");
+const assigneeInsertMenu = document.getElementById("assigneeInsertMenu");
+const assigneeInsertSearch = document.getElementById("assigneeInsertSearch");
+const assigneeInsertList = document.getElementById("assigneeInsertList");
+const insertEpicBtn = document.getElementById("insertEpicBtn");
+const epicInsertMenu = document.getElementById("epicInsertMenu");
+const epicInsertSearch = document.getElementById("epicInsertSearch");
+const epicInsertList = document.getElementById("epicInsertList");
 
 // Bug-specific fields
 const jiraBugFields = document.getElementById("jiraBugFields");
@@ -5153,6 +5176,11 @@ async function fetchIssuePreview(issueKey) {
   previewIssueSummary.textContent = "Loading...";
   previewIssueType.textContent = "";
   previewIssueStatus.textContent = "";
+  if (previewIssueAssignee) previewIssueAssignee.textContent = "Loading...";
+  if (previewIssueProject) previewIssueProject.textContent = "Loading...";
+  if (previewIssueEpic) previewIssueEpic.textContent = "Loading...";
+  if (previewIssueDescription)
+    previewIssueDescription.textContent = "Loading...";
 
   try {
     const result = await window.electronAPI.jiraGetIssue(jiraConfig, issueKey);
@@ -5162,17 +5190,54 @@ async function fetchIssuePreview(issueKey) {
     }
 
     const issue = result.issue;
+
+    // Extract description from ADF format
+    let descriptionText = "No description";
+    if (issue.fields.description) {
+      descriptionText = extractTextFromADF(issue.fields.description);
+    }
+
+    // Extract assignee name
+    const assigneeName = issue.fields.assignee?.displayName || "Unassigned";
+
+    // Extract project name
+    const projectName = issue.fields.project?.name || "-";
+
+    // Extract epic (parent) info
+    let epicInfo = "None";
+    if (issue.fields.parent) {
+      epicInfo = `${issue.fields.parent.key}: ${issue.fields.parent.fields?.summary || ""}`;
+    }
+
     linkedIssueData = {
       key: issue.key,
       summary: issue.fields.summary,
       type: issue.fields.issuetype?.name || "Unknown",
       status: issue.fields.status?.name || "Unknown",
+      assignee: assigneeName,
+      project: projectName,
+      epic: epicInfo,
+      description: descriptionText,
     };
 
     previewIssueKey.textContent = issue.key;
     previewIssueSummary.textContent = issue.fields.summary;
     previewIssueType.textContent = linkedIssueData.type;
     previewIssueStatus.textContent = linkedIssueData.status;
+    if (previewIssueAssignee)
+      previewIssueAssignee.textContent = linkedIssueData.assignee;
+    if (previewIssueProject)
+      previewIssueProject.textContent = linkedIssueData.project;
+    if (previewIssueEpic) previewIssueEpic.textContent = linkedIssueData.epic;
+    if (previewIssueDescription) {
+      // Truncate long descriptions
+      const maxLength = 200;
+      const displayDesc =
+        descriptionText.length > maxLength
+          ? descriptionText.substring(0, maxLength) + "..."
+          : descriptionText;
+      previewIssueDescription.textContent = displayDesc;
+    }
 
     linkJiraPreview.classList.remove("loading");
     confirmLinkJiraBtn.disabled = false;
@@ -5182,9 +5247,955 @@ async function fetchIssuePreview(issueKey) {
     previewIssueSummary.textContent = error.message || "Issue not found";
     previewIssueType.textContent = "";
     previewIssueStatus.textContent = "";
+    if (previewIssueAssignee) previewIssueAssignee.textContent = "";
+    if (previewIssueProject) previewIssueProject.textContent = "";
+    if (previewIssueEpic) previewIssueEpic.textContent = "";
+    if (previewIssueDescription) previewIssueDescription.textContent = "";
     linkedIssueData = null;
     confirmLinkJiraBtn.disabled = true;
   }
+}
+
+// Helper function to extract plain text from Jira ADF format
+function extractTextFromADF(adf) {
+  if (!adf || typeof adf === "string") {
+    return adf || "";
+  }
+
+  let text = "";
+
+  function processNode(node) {
+    if (!node) return;
+
+    if (node.type === "text") {
+      text += node.text || "";
+    } else if (node.type === "hardBreak") {
+      text += "\n";
+    } else if (node.type === "paragraph") {
+      if (node.content) {
+        node.content.forEach(processNode);
+      }
+      text += "\n";
+    } else if (node.content && Array.isArray(node.content)) {
+      node.content.forEach(processNode);
+    }
+  }
+
+  if (adf.content && Array.isArray(adf.content)) {
+    adf.content.forEach(processNode);
+  }
+
+  return text.trim() || "No description";
+}
+
+// Add remove buttons to existing jira-inserted-tag elements (for loaded notes)
+function addRemoveButtonsToExistingTags() {
+  const containers = [noteEditor, noteReadView];
+
+  containers.forEach((container) => {
+    if (!container) return;
+
+    const tags = container.querySelectorAll(".jira-inserted-tag");
+    tags.forEach((tag) => {
+      // Check if this tag already has a remove button
+      if (tag.querySelector(".jira-tag-remove")) return;
+
+      // Get the existing text content
+      const existingText = tag.textContent;
+
+      // Clear the tag
+      tag.innerHTML = "";
+
+      // Create text wrapper
+      const textSpan = document.createElement("span");
+      textSpan.className = "jira-tag-text";
+      textSpan.textContent = existingText;
+
+      // Create remove button (only for editor, not read view)
+      if (container === noteEditor) {
+        const removeBtn = document.createElement("span");
+        removeBtn.className = "jira-tag-remove";
+        removeBtn.innerHTML = "&times;";
+        removeBtn.title = "Remove tag";
+        removeBtn.contentEditable = "false";
+
+        // Add click handler
+        removeBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          tag.remove();
+
+          // Trigger save
+          notesSaveStatus.textContent = "Saving...";
+          notesSaveStatus.classList.add("saving");
+          clearTimeout(notesDebounceTimer);
+          notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+        });
+
+        // Append elements
+        tag.appendChild(textSpan);
+        tag.appendChild(removeBtn);
+      } else {
+        // Read view - just append text
+        tag.appendChild(textSpan);
+      }
+    });
+  });
+}
+
+// ===== Jira Quick-Insert Dropdowns =====
+let insertProjectsCache = [];
+let insertUsersCache = [];
+let insertEpicsCache = [];
+let selectedInsertProject = null;
+let activeInsertMenu = null;
+
+// Close all insert menus
+function closeAllInsertMenus() {
+  [projectInsertMenu, assigneeInsertMenu, epicInsertMenu].forEach((menu) => {
+    if (menu) menu.classList.remove("show");
+  });
+  activeInsertMenu = null;
+}
+
+// Toggle dropdown menu
+function toggleInsertMenu(menu, btn) {
+  const isOpen = menu.classList.contains("show");
+  closeAllInsertMenus();
+  if (!isOpen) {
+    menu.classList.add("show");
+    activeInsertMenu = menu;
+    const searchInput = menu.querySelector("input");
+    if (searchInput) {
+      searchInput.value = "";
+      searchInput.focus();
+    }
+  }
+}
+
+// Load projects for insert dropdown
+async function loadInsertProjects() {
+  if (!jiraConfig.serverUrl || !jiraConfig.email || !jiraConfig.apiToken) {
+    if (projectInsertList) {
+      projectInsertList.innerHTML =
+        '<div class="jira-insert-loading">Configure Jira first</div>';
+    }
+    return;
+  }
+
+  if (projectInsertList) {
+    projectInsertList.innerHTML =
+      '<div class="jira-insert-loading">Loading...</div>';
+  }
+
+  try {
+    const result = await window.electronAPI.jiraGetProjects(jiraConfig);
+    if (result.success && result.projects) {
+      insertProjectsCache = result.projects;
+      renderInsertProjects(insertProjectsCache);
+    } else {
+      if (projectInsertList) {
+        projectInsertList.innerHTML =
+          '<div class="jira-insert-loading">Failed to load</div>';
+      }
+    }
+  } catch (error) {
+    console.error("Failed to load projects:", error);
+    if (projectInsertList) {
+      projectInsertList.innerHTML =
+        '<div class="jira-insert-loading">Error loading projects</div>';
+    }
+  }
+}
+
+function renderInsertProjects(projects, filter = "") {
+  if (!projectInsertList) return;
+
+  const filtered = projects.filter(
+    (p) =>
+      p.name.toLowerCase().includes(filter.toLowerCase()) ||
+      p.key.toLowerCase().includes(filter.toLowerCase()),
+  );
+
+  if (filtered.length === 0) {
+    projectInsertList.innerHTML =
+      '<div class="jira-insert-loading">No projects found</div>';
+    return;
+  }
+
+  projectInsertList.innerHTML = filtered
+    .map(
+      (project) => `
+    <button type="button" class="jira-insert-item" data-key="${project.key}" data-name="${project.name}">
+      <span class="jira-insert-icon">📁</span>
+      <span class="jira-insert-text">${project.name} (${project.key})</span>
+    </button>
+  `,
+    )
+    .join("");
+
+  // Add click handlers
+  projectInsertList.querySelectorAll(".jira-insert-item").forEach((item) => {
+    item.addEventListener("click", async () => {
+      const key = item.dataset.key;
+      const name = item.dataset.name;
+      insertTextAtCursor(`📁 ${name} (${key})`, "project", null);
+      closeAllInsertMenus();
+
+      // Store selected project and load assignees/epics
+      selectedInsertProject = key;
+
+      // Enable assignee and epic buttons
+      if (insertAssigneeBtn) {
+        insertAssigneeBtn.disabled = false;
+        insertAssigneeBtn.title = "Insert Assignee";
+      }
+      if (insertEpicBtn) {
+        insertEpicBtn.disabled = false;
+        insertEpicBtn.title = "Insert Epic";
+      }
+
+      await Promise.all([loadInsertUsers(key), loadInsertEpics(key)]);
+    });
+  });
+}
+
+// Load users for insert dropdown
+async function loadInsertUsers(projectKey) {
+  if (!projectKey) {
+    if (assigneeInsertList) {
+      assigneeInsertList.innerHTML =
+        '<div class="jira-insert-loading">Select a project first</div>';
+    }
+    return;
+  }
+
+  if (assigneeInsertList) {
+    assigneeInsertList.innerHTML =
+      '<div class="jira-insert-loading">Loading...</div>';
+  }
+
+  try {
+    const result = await window.electronAPI.jiraGetUsers(
+      jiraConfig,
+      projectKey,
+    );
+    if (result.success && result.users) {
+      insertUsersCache = result.users;
+      renderInsertUsers(insertUsersCache);
+    } else {
+      if (assigneeInsertList) {
+        assigneeInsertList.innerHTML =
+          '<div class="jira-insert-loading">Failed to load</div>';
+      }
+    }
+  } catch (error) {
+    console.error("Failed to load users:", error);
+    if (assigneeInsertList) {
+      assigneeInsertList.innerHTML =
+        '<div class="jira-insert-loading">Error loading users</div>';
+    }
+  }
+}
+
+function renderInsertUsers(users, filter = "") {
+  if (!assigneeInsertList) return;
+
+  const filtered = users.filter((u) =>
+    u.displayName.toLowerCase().includes(filter.toLowerCase()),
+  );
+
+  if (filtered.length === 0) {
+    assigneeInsertList.innerHTML =
+      '<div class="jira-insert-loading">No assignees found</div>';
+    return;
+  }
+
+  assigneeInsertList.innerHTML = filtered
+    .map(
+      (user) => `
+    <button type="button" class="jira-insert-item" data-id="${user.accountId}" data-name="${user.displayName}">
+      <span class="jira-insert-icon">👤</span>
+      <span class="jira-insert-text">${user.displayName}</span>
+    </button>
+  `,
+    )
+    .join("");
+
+  // Add click handlers
+  assigneeInsertList.querySelectorAll(".jira-insert-item").forEach((item) => {
+    item.addEventListener("click", () => {
+      const name = item.dataset.name;
+      insertTextAtCursor(`👤 ${name}`, "assignee", null);
+      closeAllInsertMenus();
+    });
+  });
+}
+
+// Load epics for insert dropdown
+async function loadInsertEpics(projectKey) {
+  if (!projectKey) {
+    if (epicInsertList) {
+      epicInsertList.innerHTML =
+        '<div class="jira-insert-loading">Select a project first</div>';
+    }
+    return;
+  }
+
+  if (epicInsertList) {
+    epicInsertList.innerHTML =
+      '<div class="jira-insert-loading">Loading...</div>';
+  }
+
+  try {
+    const result = await window.electronAPI.jiraGetEpics(
+      jiraConfig,
+      projectKey,
+    );
+    if (result.success && result.epics) {
+      insertEpicsCache = result.epics;
+      renderInsertEpics(insertEpicsCache);
+    } else {
+      if (epicInsertList) {
+        epicInsertList.innerHTML =
+          '<div class="jira-insert-loading">No epics found</div>';
+      }
+    }
+  } catch (error) {
+    console.error("Failed to load epics:", error);
+    if (epicInsertList) {
+      epicInsertList.innerHTML =
+        '<div class="jira-insert-loading">Error loading epics</div>';
+    }
+  }
+}
+
+function renderInsertEpics(epics, filter = "") {
+  if (!epicInsertList) return;
+
+  const filtered = epics.filter(
+    (e) =>
+      e.key.toLowerCase().includes(filter.toLowerCase()) ||
+      e.summary.toLowerCase().includes(filter.toLowerCase()),
+  );
+
+  if (filtered.length === 0) {
+    epicInsertList.innerHTML =
+      '<div class="jira-insert-loading">No epics found</div>';
+    return;
+  }
+
+  epicInsertList.innerHTML = filtered
+    .map((epic) => {
+      const epicData = JSON.stringify(epic).replace(/"/g, "&quot;");
+      return `
+      <button type="button" class="jira-insert-item" data-key="${epic.key}" data-summary="${epic.summary}" data-epic="${epicData}">
+        <span class="jira-insert-icon">🎯</span>
+        <span class="jira-insert-text">${epic.key}: ${epic.summary}</span>
+      </button>
+    `;
+    })
+    .join("");
+
+  // Add click handlers
+  epicInsertList.querySelectorAll(".jira-insert-item").forEach((item) => {
+    item.addEventListener("click", () => {
+      const key = item.dataset.key;
+      const summary = item.dataset.summary;
+      const epicData = JSON.parse(item.dataset.epic.replace(/&quot;/g, '"'));
+      insertTextAtCursor(`🎯 ${key}: ${summary}`, "epic", epicData);
+      closeAllInsertMenus();
+    });
+  });
+}
+
+// Insert text at cursor in note editor
+function insertTextAtCursor(text, type = "default", extraData = null) {
+  if (!noteEditor || !isEditMode) return;
+
+  // Ensure we're inserting into the noteEditor only
+  noteEditor.focus();
+
+  const selection = window.getSelection();
+  let range;
+
+  // Validate savedSelectionRange is within noteEditor
+  if (
+    savedSelectionRange &&
+    noteEditor.contains(savedSelectionRange.commonAncestorContainer)
+  ) {
+    range = savedSelectionRange;
+  } else if (selection.rangeCount > 0) {
+    range = selection.getRangeAt(0);
+    // Ensure range is within noteEditor
+    if (!noteEditor.contains(range.commonAncestorContainer)) {
+      range = document.createRange();
+      range.selectNodeContents(noteEditor);
+      range.collapse(false);
+    }
+  } else {
+    // Create range at end of noteEditor
+    range = document.createRange();
+    range.selectNodeContents(noteEditor);
+    range.collapse(false);
+  }
+
+  // Double-check the range is within noteEditor before proceeding
+  if (!noteEditor.contains(range.commonAncestorContainer)) {
+    console.warn("Attempted to insert outside noteEditor, aborting");
+    savedSelectionRange = null;
+    return;
+  }
+
+  // Create styled span for the inserted text
+  const span = document.createElement("span");
+  span.className = "jira-inserted-tag";
+  span.contentEditable = "false";
+  span.dataset.type = type;
+
+  // Create text content wrapper
+  const textSpan = document.createElement("span");
+  textSpan.className = "jira-tag-text";
+  textSpan.textContent = text;
+
+  // Create remove button
+  const removeBtn = document.createElement("span");
+  removeBtn.className = "jira-tag-remove";
+  removeBtn.innerHTML = "&times;";
+  removeBtn.title = "Remove tag";
+  removeBtn.contentEditable = "false";
+
+  // Add click handler to remove the tag
+  removeBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    span.remove();
+    // Trigger save
+    notesSaveStatus.textContent = "Saving...";
+    notesSaveStatus.classList.add("saving");
+    clearTimeout(notesDebounceTimer);
+    notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+  });
+
+  span.appendChild(textSpan);
+  span.appendChild(removeBtn);
+
+  // Store epic details for tooltip
+  if (type === "epic" && extraData) {
+    span.dataset.epicKey = extraData.key;
+    span.dataset.epicSummary = extraData.summary;
+    if (extraData.status) span.dataset.epicStatus = extraData.status;
+    if (extraData.assignee) span.dataset.epicAssignee = extraData.assignee;
+    if (extraData.description)
+      span.dataset.epicDescription = extraData.description;
+    span.classList.add("jira-epic-tag");
+  }
+
+  const spaceBefore = document.createTextNode(" ");
+  const spaceAfter = document.createTextNode(" ");
+
+  range.deleteContents();
+  range.insertNode(spaceAfter);
+  range.insertNode(span);
+  range.insertNode(spaceBefore);
+
+  range.setStartAfter(spaceAfter);
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+
+  savedSelectionRange = null;
+
+  // Trigger save
+  notesSaveStatus.textContent = "Saving...";
+  notesSaveStatus.classList.add("saving");
+  clearTimeout(notesDebounceTimer);
+  notesDebounceTimer = setTimeout(saveCurrentNote, 500);
+}
+
+// Event listeners for insert dropdown buttons
+if (insertProjectBtn) {
+  // Prevent button from stealing focus
+  insertProjectBtn.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+  });
+
+  insertProjectBtn.addEventListener("click", () => {
+    if (!isEditMode) return;
+
+    // Save selection only if it's within noteEditor
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      if (noteEditor && noteEditor.contains(range.commonAncestorContainer)) {
+        savedSelectionRange = range.cloneRange();
+      } else {
+        savedSelectionRange = null;
+      }
+    } else {
+      savedSelectionRange = null;
+    }
+
+    toggleInsertMenu(projectInsertMenu, insertProjectBtn);
+    if (
+      projectInsertMenu.classList.contains("show") &&
+      insertProjectsCache.length === 0
+    ) {
+      loadInsertProjects();
+    }
+  });
+}
+
+if (insertAssigneeBtn) {
+  // Prevent button from stealing focus
+  insertAssigneeBtn.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+  });
+
+  insertAssigneeBtn.addEventListener("click", () => {
+    if (!isEditMode) return;
+
+    // Save selection only if it's within noteEditor
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      if (noteEditor && noteEditor.contains(range.commonAncestorContainer)) {
+        savedSelectionRange = range.cloneRange();
+      } else {
+        savedSelectionRange = null;
+      }
+    } else {
+      savedSelectionRange = null;
+    }
+
+    toggleInsertMenu(assigneeInsertMenu, insertAssigneeBtn);
+
+    if (!selectedInsertProject) {
+      if (assigneeInsertList) {
+        assigneeInsertList.innerHTML =
+          '<div class="jira-insert-loading">Select a project first</div>';
+      }
+    }
+  });
+}
+
+if (insertEpicBtn) {
+  // Prevent button from stealing focus
+  insertEpicBtn.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+  });
+
+  insertEpicBtn.addEventListener("click", () => {
+    if (!isEditMode) return;
+
+    // Save selection only if it's within noteEditor
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      if (noteEditor && noteEditor.contains(range.commonAncestorContainer)) {
+        savedSelectionRange = range.cloneRange();
+      } else {
+        savedSelectionRange = null;
+      }
+    } else {
+      savedSelectionRange = null;
+    }
+
+    toggleInsertMenu(epicInsertMenu, insertEpicBtn);
+
+    if (!selectedInsertProject) {
+      if (epicInsertList) {
+        epicInsertList.innerHTML =
+          '<div class="jira-insert-loading">Select a project first</div>';
+      }
+    }
+  });
+}
+
+// Search handlers
+if (projectInsertSearch) {
+  projectInsertSearch.addEventListener("input", (e) => {
+    renderInsertProjects(insertProjectsCache, e.target.value);
+  });
+}
+
+if (assigneeInsertSearch) {
+  assigneeInsertSearch.addEventListener("input", (e) => {
+    renderInsertUsers(insertUsersCache, e.target.value);
+  });
+}
+
+if (epicInsertSearch) {
+  epicInsertSearch.addEventListener("input", (e) => {
+    renderInsertEpics(insertEpicsCache, e.target.value);
+  });
+}
+
+// Close menus when clicking outside
+document.addEventListener("click", (e) => {
+  if (activeInsertMenu) {
+    const isInsideMenu = e.target.closest(".jira-insert-dropdown");
+    if (!isInsideMenu) {
+      closeAllInsertMenus();
+    }
+  }
+});
+
+// Close menus on Escape
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && activeInsertMenu) {
+    closeAllInsertMenus();
+  }
+});
+
+// Epic tooltip functionality
+let epicTooltip = null;
+
+function createEpicTooltip() {
+  if (epicTooltip) return epicTooltip;
+
+  epicTooltip = document.createElement("div");
+  epicTooltip.className = "epic-tooltip hidden";
+  document.body.appendChild(epicTooltip);
+  return epicTooltip;
+}
+
+function showEpicTooltip(epicTag, x, y) {
+  const tooltip = createEpicTooltip();
+
+  const key = epicTag.dataset.epicKey || "N/A";
+  const summary = epicTag.dataset.epicSummary || "N/A";
+  const status = epicTag.dataset.epicStatus || "Unknown";
+  const assignee = epicTag.dataset.epicAssignee || "Unassigned";
+  const description = epicTag.dataset.epicDescription || "No description";
+
+  tooltip.innerHTML = `
+    <div class="epic-tooltip-header">
+      <strong>🎯 ${key}</strong>
+    </div>
+    <div class="epic-tooltip-body">
+      <div class="epic-tooltip-row">
+        <span class="epic-tooltip-label">Summary:</span>
+        <span class="epic-tooltip-value">${summary}</span>
+      </div>
+      <div class="epic-tooltip-row">
+        <span class="epic-tooltip-label">Status:</span>
+        <span class="epic-tooltip-value">${status}</span>
+      </div>
+      <div class="epic-tooltip-row">
+        <span class="epic-tooltip-label">Assignee:</span>
+        <span class="epic-tooltip-value">${assignee}</span>
+      </div>
+      <div class="epic-tooltip-row">
+        <span class="epic-tooltip-label">Description:</span>
+        <div class="epic-tooltip-description">${description}</div>
+      </div>
+    </div>
+  `;
+
+  tooltip.classList.remove("hidden");
+
+  // Position tooltip
+  const tooltipRect = tooltip.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  let left = x + 10;
+  let top = y + 10;
+
+  // Adjust if tooltip goes off-screen
+  if (left + tooltipRect.width > viewportWidth) {
+    left = x - tooltipRect.width - 10;
+  }
+  if (top + tooltipRect.height > viewportHeight) {
+    top = y - tooltipRect.height - 10;
+  }
+
+  tooltip.style.left = `${left}px`;
+  tooltip.style.top = `${top}px`;
+}
+
+function hideEpicTooltip() {
+  if (epicTooltip) {
+    epicTooltip.classList.add("hidden");
+  }
+}
+
+// Add hover listeners to epic tags (use event delegation)
+if (noteEditor) {
+  noteEditor.addEventListener("mouseover", (e) => {
+    const epicTag = e.target.closest(".jira-epic-tag");
+    if (epicTag && epicTag.dataset.epicKey) {
+      showEpicTooltip(epicTag, e.pageX, e.pageY);
+    }
+  });
+
+  noteEditor.addEventListener("mouseout", (e) => {
+    const epicTag = e.target.closest(".jira-epic-tag");
+    if (epicTag) {
+      hideEpicTooltip();
+    }
+  });
+}
+
+// Also handle for read view
+if (noteReadView) {
+  noteReadView.addEventListener("mouseover", (e) => {
+    const epicTag = e.target.closest(".jira-epic-tag");
+    if (epicTag && epicTag.dataset.epicKey) {
+      showEpicTooltip(epicTag, e.pageX, e.pageY);
+    }
+  });
+
+  noteReadView.addEventListener("mouseout", (e) => {
+    const epicTag = e.target.closest(".jira-epic-tag");
+    if (epicTag) {
+      hideEpicTooltip();
+    }
+  });
+}
+
+// Issue tooltip functionality
+let issueTooltip = null;
+let currentIssueKey = null; // Track current issue to prevent duplicate fetches
+
+function createIssueTooltip() {
+  if (issueTooltip) return issueTooltip;
+
+  issueTooltip = document.createElement("div");
+  issueTooltip.className = "issue-tooltip hidden";
+  document.body.appendChild(issueTooltip);
+  return issueTooltip;
+}
+
+async function showIssueTooltip(issueLink, x, y) {
+  const tooltip = createIssueTooltip();
+
+  // Extract issue key from the link text or href
+  let issueKey = issueLink.textContent.trim();
+  if (!issueKey || !issueKey.match(/^[A-Z]+-\d+$/)) {
+    // Try to extract from href if text doesn't match pattern
+    const href = issueLink.href || issueLink.dataset.jiraUrl || "";
+    const match = href.match(/browse\/([A-Z]+-\d+)/);
+    if (match) {
+      issueKey = match[1];
+    } else {
+      return; // Can't determine issue key
+    }
+  }
+
+  // Prevent duplicate fetches
+  if (currentIssueKey === issueKey && !tooltip.classList.contains("hidden")) {
+    return;
+  }
+
+  currentIssueKey = issueKey;
+
+  // Show loading state
+  tooltip.innerHTML = `
+    <div class="issue-tooltip-header">
+      <strong>🔄 ${issueKey}</strong>
+    </div>
+    <div class="issue-tooltip-body">
+      <div class="issue-tooltip-loading">Loading...</div>
+    </div>
+  `;
+  tooltip.classList.remove("hidden");
+
+  // Position tooltip (initial position)
+  positionIssueTooltip(tooltip, x, y);
+
+  // Fetch issue details
+  try {
+    const result = await window.electronAPI.jiraGetIssue(jiraConfig, issueKey);
+
+    if (!result.success) {
+      throw new Error(result.error || "Failed to fetch issue");
+    }
+
+    // Check if we're still hovering over the same issue
+    if (currentIssueKey !== issueKey) {
+      return;
+    }
+
+    const issue = result.issue;
+    const summary = issue.fields.summary || "N/A";
+    const issueType = issue.fields.issuetype?.name || "N/A";
+    const status = issue.fields.status?.name || "Unknown";
+    const assignee = issue.fields.assignee?.displayName || "Unassigned";
+    const project = issue.fields.project?.name || "N/A";
+    const parent = issue.fields.parent?.key || "None";
+
+    // Extract description
+    let description = "No description";
+    if (issue.fields.description) {
+      if (typeof issue.fields.description === "string") {
+        description = issue.fields.description;
+      } else if (issue.fields.description.content) {
+        // Handle ADF format
+        description = extractADFText(issue.fields.description);
+      }
+    }
+
+    // Truncate description if too long
+    if (description.length > 300) {
+      description = description.substring(0, 300) + "...";
+    }
+
+    tooltip.innerHTML = `
+      <div class="issue-tooltip-header">
+        <div class="issue-tooltip-title">
+          <span class="issue-tooltip-icon">🎫</span>
+          <strong class="issue-tooltip-key">${issueKey}</strong>
+        </div>
+        <span class="issue-tooltip-type">${issueType}</span>
+      </div>
+      <div class="issue-tooltip-body">
+        <div class="issue-tooltip-summary">${summary}</div>
+        
+        <div class="issue-tooltip-grid">
+          <div class="issue-tooltip-item">
+            <span class="issue-tooltip-label">Status</span>
+            <span class="issue-tooltip-badge issue-status-badge">${status}</span>
+          </div>
+          <div class="issue-tooltip-item">
+            <span class="issue-tooltip-label">Assignee</span>
+            <span class="issue-tooltip-value">${assignee}</span>
+          </div>
+          <div class="issue-tooltip-item">
+            <span class="issue-tooltip-label">Project</span>
+            <span class="issue-tooltip-value">${project}</span>
+          </div>
+          ${
+            parent !== "None"
+              ? `
+          <div class="issue-tooltip-item">
+            <span class="issue-tooltip-label">Epic</span>
+            <span class="issue-tooltip-value issue-epic-value">${parent}</span>
+          </div>
+          `
+              : ""
+          }
+        </div>
+        
+        ${
+          description !== "No description"
+            ? `
+        <div class="issue-tooltip-description-section">
+          <span class="issue-tooltip-label">Description</span>
+          <div class="issue-tooltip-description">${description}</div>
+        </div>
+        `
+            : ""
+        }
+      </div>
+    `;
+
+    // Reposition after content loaded
+    positionIssueTooltip(tooltip, x, y);
+  } catch (error) {
+    console.error("Failed to fetch issue details:", error);
+    tooltip.innerHTML = `
+      <div class="issue-tooltip-header issue-tooltip-error-header">
+        <div class="issue-tooltip-title">
+          <span class="issue-tooltip-icon">❌</span>
+          <strong class="issue-tooltip-key">${issueKey}</strong>
+        </div>
+      </div>
+      <div class="issue-tooltip-body">
+        <div class="issue-tooltip-error">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <circle cx="10" cy="10" r="8" stroke="#ef4444" stroke-width="2" fill="none"/>
+            <path d="M10 6v4M10 13v1" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span>Failed to load issue details</span>
+        </div>
+      </div>
+    `;
+    positionIssueTooltip(tooltip, x, y);
+  }
+}
+
+function positionIssueTooltip(tooltip, x, y) {
+  // Position tooltip
+  const tooltipRect = tooltip.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  let left = x + 10;
+  let top = y + 10;
+
+  // Adjust if tooltip goes off-screen
+  if (left + tooltipRect.width > viewportWidth) {
+    left = x - tooltipRect.width - 10;
+  }
+  if (top + tooltipRect.height > viewportHeight) {
+    top = y - tooltipRect.height - 10;
+  }
+
+  tooltip.style.left = `${left}px`;
+  tooltip.style.top = `${top}px`;
+}
+
+function hideIssueTooltip() {
+  if (issueTooltip) {
+    issueTooltip.classList.add("hidden");
+    currentIssueKey = null;
+  }
+}
+
+// Helper function to extract text from ADF (duplicated from main process for frontend use)
+function extractADFText(adf) {
+  if (!adf || !adf.content) return "";
+
+  let text = "";
+  for (const node of adf.content) {
+    if (node.type === "paragraph" && node.content) {
+      for (const child of node.content) {
+        if (child.text) {
+          text += child.text + " ";
+        }
+      }
+      text += "\n";
+    } else if (node.type === "text" && node.text) {
+      text += node.text + " ";
+    }
+  }
+  return text.trim();
+}
+
+// Add hover listeners to issue links (use event delegation)
+if (noteEditor) {
+  noteEditor.addEventListener("mouseover", (e) => {
+    const issueLink = e.target.closest(".jira-issue-link");
+    if (issueLink) {
+      showIssueTooltip(issueLink, e.pageX, e.pageY);
+    }
+  });
+
+  noteEditor.addEventListener("mouseout", (e) => {
+    const issueLink = e.target.closest(".jira-issue-link");
+    if (issueLink) {
+      hideIssueTooltip();
+    }
+  });
+}
+
+// Also handle for read view
+if (noteReadView) {
+  noteReadView.addEventListener("mouseover", (e) => {
+    const issueLink = e.target.closest(".jira-issue-link");
+    if (issueLink) {
+      showIssueTooltip(issueLink, e.pageX, e.pageY);
+    }
+  });
+
+  noteReadView.addEventListener("mouseout", (e) => {
+    const issueLink = e.target.closest(".jira-issue-link");
+    if (issueLink) {
+      hideIssueTooltip();
+    }
+  });
 }
 
 // Confirm link issue

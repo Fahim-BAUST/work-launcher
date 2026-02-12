@@ -1380,6 +1380,89 @@
                         🔗 Add Jira Link
                       </button>
                     </div>
+
+                    <!-- Jira Quick-Insert Dropdowns -->
+                    <div class="jira-insert-dropdowns">
+                      <!-- Project Dropdown -->
+                      <div class="jira-insert-dropdown">
+                        <button
+                          type="button"
+                          id="insertProjectBtn"
+                          title="Insert Project"
+                          class="jira-insert-btn"
+                        >
+                          📁 Project
+                        </button>
+                        <div class="jira-insert-menu" id="projectInsertMenu">
+                          <div class="jira-insert-search">
+                            <input
+                              type="text"
+                              placeholder="Search projects..."
+                              id="projectInsertSearch"
+                            />
+                          </div>
+                          <div class="jira-insert-list" id="projectInsertList">
+                            <div class="jira-insert-loading">
+                              Configure Jira first
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Assignee Dropdown -->
+                      <div class="jira-insert-dropdown">
+                        <button
+                          type="button"
+                          id="insertAssigneeBtn"
+                          title="Select a project first"
+                          class="jira-insert-btn"
+                          disabled
+                        >
+                          👤 Assignee
+                        </button>
+                        <div class="jira-insert-menu" id="assigneeInsertMenu">
+                          <div class="jira-insert-search">
+                            <input
+                              type="text"
+                              placeholder="Search assignees..."
+                              id="assigneeInsertSearch"
+                            />
+                          </div>
+                          <div class="jira-insert-list" id="assigneeInsertList">
+                            <div class="jira-insert-loading">
+                              Select a project first
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Epic Dropdown -->
+                      <div class="jira-insert-dropdown">
+                        <button
+                          type="button"
+                          id="insertEpicBtn"
+                          title="Select a project first"
+                          class="jira-insert-btn"
+                          disabled
+                        >
+                          🎯 Epic
+                        </button>
+                        <div class="jira-insert-menu" id="epicInsertMenu">
+                          <div class="jira-insert-search">
+                            <input
+                              type="text"
+                              placeholder="Search epics..."
+                              id="epicInsertSearch"
+                            />
+                          </div>
+                          <div class="jira-insert-list" id="epicInsertList">
+                            <div class="jira-insert-loading">
+                              Select a project first
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                     <span class="toolbar-divider"></span>
 
                     <!-- Clear -->
@@ -2645,6 +2728,35 @@
               <div class="preview-meta">
                 <span class="preview-type" id="previewIssueType"></span>
                 <span class="preview-status" id="previewIssueStatus"></span>
+              </div>
+              <div class="preview-details">
+                <div class="preview-detail-row">
+                  <span class="preview-detail-label">👤 Assignee:</span>
+                  <span class="preview-detail-value" id="previewIssueAssignee"
+                    >Unassigned</span
+                  >
+                </div>
+                <div class="preview-detail-row">
+                  <span class="preview-detail-label">📁 Project:</span>
+                  <span class="preview-detail-value" id="previewIssueProject"
+                    >-</span
+                  >
+                </div>
+                <div class="preview-detail-row">
+                  <span class="preview-detail-label">🎯 Epic:</span>
+                  <span class="preview-detail-value" id="previewIssueEpic"
+                    >None</span
+                  >
+                </div>
+                <div class="preview-detail-row preview-description-row">
+                  <span class="preview-detail-label">📝 Description:</span>
+                  <div
+                    class="preview-detail-value preview-description"
+                    id="previewIssueDescription"
+                  >
+                    No description
+                  </div>
+                </div>
               </div>
             </div>
           </div>
