@@ -128,13 +128,23 @@ body {
 
 .container {
   max-width: 100%;
-  padding: 20px;
+  padding: 12px 20px;
   position: relative;
+  height: calc(100vh - 24px);
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 header {
   text-align: center;
-  margin-bottom: 25px;
+  margin-bottom: 12px;
 }
 
 .header-row {
@@ -155,8 +165,8 @@ header {
 }
 
 header h1 {
-  font-size: 1.8rem;
-  margin-bottom: 5px;
+  font-size: 1.6rem;
+  margin-bottom: 2px;
   background: var(--accent-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -167,29 +177,47 @@ header h1 {
 
 .subtitle {
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 400;
+  margin: 0;
 }
 
 /* Tab Navigation */
 .tab-nav {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
   gap: 4px;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
   padding: 4px;
   background: var(--bg-secondary);
   border-radius: var(--border-radius);
   border: 1px solid var(--border-color);
 }
 
+.tab-nav-left {
+  display: flex;
+  gap: 4px;
+}
+
+.tab-nav-right {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.tab-nav-right .btn-icon {
+  padding: 6px;
+  min-width: auto;
+}
+
 .tab-btn {
-  flex: 1;
-  padding: 8px 16px;
+  padding: 6px 12px;
   background: transparent;
   border: none;
   border-radius: 4px;
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -211,7 +239,10 @@ header h1 {
 }
 
 .tab-panel.active {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
   animation: fadeIn 0.3s ease;
 }
 
@@ -1983,7 +2014,8 @@ body.light-theme .help-item code {
   border-radius: 20px;
   padding: 18px 24px;
   border: 1px solid var(--glass-border);
-  min-height: calc(100vh - 220px);
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
@@ -2004,16 +2036,31 @@ body.light-theme .help-item code {
 .notes-tab-section .notes-container {
   flex: 1;
   max-height: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .notes-tab-section .notes-layout {
-  height: calc(100vh - 320px);
-  min-height: 400px;
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+.notes-tab-section .note-editor-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .notes-tab-section .note-editor {
-  height: calc(100vh - 500px);
-  min-height: 250px;
+  flex: 1;
+  min-height: 200px;
+}
+
+.notes-tab-section .note-read-view {
+  flex: 1;
+  min-height: 200px;
 }
 
 .notes-container {
@@ -2533,7 +2580,7 @@ body.light-theme .help-item code {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  padding: 12px;
+  padding: 8px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px 12px 0 0;
@@ -2554,11 +2601,11 @@ body.light-theme .help-item code {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text-color);
-  padding: 8px 12px;
-  border-radius: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 0.8rem;
-  min-width: 34px;
+  font-size: 0.75rem;
+  min-width: 32px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
@@ -5599,7 +5646,9 @@ body.light-theme .note-editor .note-table td {
 /* ========== Footer ========== */
 .app-footer {
   padding: 14px 18px;
-  border-top: 1px solid var(--glass-border);
+  margin-top: 20px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--glass-border);
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   text-align: center;

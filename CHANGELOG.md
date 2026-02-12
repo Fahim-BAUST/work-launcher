@@ -2,6 +2,18 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
+## [1.0.34] - 2026-02-12
+
+### Improved
+- **UI Layout Optimization**: Redesigned header and navigation
+  - Removed large header title and subtitle to maximize content space
+  - Integrated tabs (Settings, Notes, Help) with navigation bar
+  - Moved update and theme buttons to top navigation bar on the right side
+  - Footer now appears only in Help tab as a card-styled section
+  - Improved vertical space utilization for notes editor
+  - Notes section now automatically fills available vertical space
+  - Compact design reduces the amount of scrolling needed
+
 ## [1.0.33] - 2026-02-12
 
 ### Fixed
