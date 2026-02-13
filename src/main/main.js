@@ -249,10 +249,10 @@ app.on("second-instance", () => {
  */
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 750,
+    width: 800,
     height: 950,
     resizable: true,
-    minWidth: 650,
+    minWidth: 1000,
     minHeight: 700,
     icon: getAssetPath("icon.ico"),
     webPreferences: {
@@ -1417,6 +1417,37 @@ function setupIpcHandlers() {
           `/rest/agile/1.0/sprint/${sprintId}/issue`,
           "POST",
           { issues: [issueKey] },
+        );
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    },
+  );
+
+  // Get available transitions for a Jira issue
+  ipcMain.handle("jira-get-transitions", async (event, config, issueKey) => {
+    try {
+      const result = await jiraApiRequest(
+        config,
+        `/rest/api/3/issue/${issueKey}/transitions`,
+      );
+      return { success: true, transitions: result.transitions || [] };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Transition a Jira issue (change status)
+  ipcMain.handle(
+    "jira-transition-issue",
+    async (event, config, issueKey, transitionId) => {
+      try {
+        await jiraApiRequest(
+          config,
+          `/rest/api/3/issue/${issueKey}/transitions`,
+          "POST",
+          { transition: { id: transitionId } },
         );
         return { success: true };
       } catch (error) {

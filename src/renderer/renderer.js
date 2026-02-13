@@ -5348,6 +5348,10 @@ function addRemoveButtonsToExistingTags() {
         removeBtn.addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
+          // Hide epic tooltip if this is an epic tag
+          if (tag.classList.contains("jira-epic-tag")) {
+            hideEpicTooltip();
+          }
           tag.remove();
 
           // Trigger save
@@ -5712,6 +5716,10 @@ function insertTextAtCursor(text, type = "default", extraData = null) {
   removeBtn.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
+    // Hide epic tooltip if this is an epic tag
+    if (span.classList.contains("jira-epic-tag")) {
+      hideEpicTooltip();
+    }
     span.remove();
     // Trigger save
     notesSaveStatus.textContent = "Saving...";
@@ -6007,6 +6015,8 @@ if (noteReadView) {
 // Issue tooltip functionality
 let issueTooltip = null;
 let currentIssueKey = null; // Track current issue to prevent duplicate fetches
+let isTooltipSticky = false; // Track if tooltip is in sticky (pinned) mode
+let issueTransitionsCache = {}; // Cache transitions for each issue
 
 function createIssueTooltip() {
   if (issueTooltip) return issueTooltip;
@@ -6014,11 +6024,30 @@ function createIssueTooltip() {
   issueTooltip = document.createElement("div");
   issueTooltip.className = "issue-tooltip hidden";
   document.body.appendChild(issueTooltip);
+
+  // Add mouseenter/mouseleave handlers for sticky tooltip
+  issueTooltip.addEventListener("mouseenter", () => {
+    // Keep tooltip visible when hovering over it
+  });
+
+  issueTooltip.addEventListener("mouseleave", () => {
+    // Only hide if not in sticky mode
+    if (!isTooltipSticky) {
+      hideIssueTooltip();
+    }
+  });
+
   return issueTooltip;
 }
 
-async function showIssueTooltip(issueLink, x, y) {
+async function showIssueTooltip(issueLink, x, y, sticky = false) {
   const tooltip = createIssueTooltip();
+
+  // If sticky mode requested, set the flag
+  if (sticky) {
+    isTooltipSticky = true;
+    tooltip.classList.add("issue-tooltip-sticky");
+  }
 
   // Extract issue key from the link text or href
   let issueKey = issueLink.textContent.trim();
@@ -6033,23 +6062,42 @@ async function showIssueTooltip(issueLink, x, y) {
     }
   }
 
-  // Prevent duplicate fetches
-  if (currentIssueKey === issueKey && !tooltip.classList.contains("hidden")) {
+  // Prevent duplicate fetches (but allow if switching to sticky mode)
+  if (
+    currentIssueKey === issueKey &&
+    !tooltip.classList.contains("hidden") &&
+    !sticky
+  ) {
     return;
   }
 
   currentIssueKey = issueKey;
 
   // Show loading state
+  const closeBtn = sticky
+    ? '<button class="issue-tooltip-close" title="Close">&times;</button>'
+    : "";
   tooltip.innerHTML = `
     <div class="issue-tooltip-header">
       <strong>🔄 ${issueKey}</strong>
+      ${closeBtn}
     </div>
     <div class="issue-tooltip-body">
       <div class="issue-tooltip-loading">Loading...</div>
     </div>
   `;
   tooltip.classList.remove("hidden");
+
+  // Add close button handler if sticky
+  if (sticky) {
+    const closeBtnEl = tooltip.querySelector(".issue-tooltip-close");
+    if (closeBtnEl) {
+      closeBtnEl.addEventListener("click", (e) => {
+        e.stopPropagation();
+        hideIssueTooltip(true);
+      });
+    }
+  }
 
   // Position tooltip (initial position)
   positionIssueTooltip(tooltip, x, y);
@@ -6091,22 +6139,54 @@ async function showIssueTooltip(issueLink, x, y) {
       description = description.substring(0, 300) + "...";
     }
 
+    // Build status section - if sticky, show dropdown for status change
+    let statusSection = "";
+    if (isTooltipSticky) {
+      statusSection = `
+        <div class="issue-tooltip-item issue-tooltip-status-item">
+          <span class="issue-tooltip-label">Status</span>
+          <div class="issue-tooltip-status-wrapper">
+            <button class="issue-tooltip-status-btn" data-issue-key="${issueKey}">
+              <span class="issue-tooltip-badge issue-status-badge">${status}</span>
+              <svg class="issue-tooltip-status-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
+            </button>
+            <div class="issue-tooltip-status-dropdown hidden" data-issue-key="${issueKey}">
+              <div class="issue-tooltip-status-loading">Loading transitions...</div>
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      statusSection = `
+        <div class="issue-tooltip-item">
+          <span class="issue-tooltip-label">Status</span>
+          <span class="issue-tooltip-badge issue-status-badge">${status}</span>
+        </div>
+      `;
+    }
+
+    const closeBtnHtml = isTooltipSticky
+      ? '<button class="issue-tooltip-close" title="Close">&times;</button>'
+      : "";
+
     tooltip.innerHTML = `
       <div class="issue-tooltip-header">
         <div class="issue-tooltip-title">
           <span class="issue-tooltip-icon">🎫</span>
           <strong class="issue-tooltip-key">${issueKey}</strong>
         </div>
-        <span class="issue-tooltip-type">${issueType}</span>
+        <div class="issue-tooltip-header-right">
+          <span class="issue-tooltip-type">${issueType}</span>
+          ${closeBtnHtml}
+        </div>
       </div>
       <div class="issue-tooltip-body">
         <div class="issue-tooltip-summary">${summary}</div>
         
         <div class="issue-tooltip-grid">
-          <div class="issue-tooltip-item">
-            <span class="issue-tooltip-label">Status</span>
-            <span class="issue-tooltip-badge issue-status-badge">${status}</span>
-          </div>
+          ${statusSection}
           <div class="issue-tooltip-item">
             <span class="issue-tooltip-label">Assignee</span>
             <span class="issue-tooltip-value">${assignee}</span>
@@ -6140,16 +6220,51 @@ async function showIssueTooltip(issueLink, x, y) {
       </div>
     `;
 
+    // Add close button handler if sticky
+    if (isTooltipSticky) {
+      const closeBtnEl = tooltip.querySelector(".issue-tooltip-close");
+      if (closeBtnEl) {
+        closeBtnEl.addEventListener("click", (e) => {
+          e.stopPropagation();
+          hideIssueTooltip(true);
+        });
+      }
+
+      // Add status button handler
+      const statusBtn = tooltip.querySelector(".issue-tooltip-status-btn");
+      if (statusBtn) {
+        statusBtn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          const dropdown = tooltip.querySelector(
+            ".issue-tooltip-status-dropdown",
+          );
+          if (dropdown) {
+            const isHidden = dropdown.classList.contains("hidden");
+            dropdown.classList.toggle("hidden");
+
+            if (isHidden) {
+              // Load transitions if not cached
+              await loadIssueTransitions(issueKey, dropdown);
+            }
+          }
+        });
+      }
+    }
+
     // Reposition after content loaded
     positionIssueTooltip(tooltip, x, y);
   } catch (error) {
     console.error("Failed to fetch issue details:", error);
+    const closeBtnHtml = isTooltipSticky
+      ? '<button class="issue-tooltip-close" title="Close">&times;</button>'
+      : "";
     tooltip.innerHTML = `
       <div class="issue-tooltip-header issue-tooltip-error-header">
         <div class="issue-tooltip-title">
           <span class="issue-tooltip-icon">❌</span>
           <strong class="issue-tooltip-key">${issueKey}</strong>
         </div>
+        ${closeBtnHtml}
       </div>
       <div class="issue-tooltip-body">
         <div class="issue-tooltip-error">
@@ -6161,8 +6276,115 @@ async function showIssueTooltip(issueLink, x, y) {
         </div>
       </div>
     `;
+
+    if (isTooltipSticky) {
+      const closeBtnEl = tooltip.querySelector(".issue-tooltip-close");
+      if (closeBtnEl) {
+        closeBtnEl.addEventListener("click", (e) => {
+          e.stopPropagation();
+          hideIssueTooltip(true);
+        });
+      }
+    }
+
     positionIssueTooltip(tooltip, x, y);
   }
+}
+
+// Load transitions for an issue
+async function loadIssueTransitions(issueKey, dropdownEl) {
+  try {
+    // Check cache first
+    if (issueTransitionsCache[issueKey]) {
+      renderTransitions(issueKey, issueTransitionsCache[issueKey], dropdownEl);
+      return;
+    }
+
+    const result = await window.electronAPI.jiraGetTransitions(
+      jiraConfig,
+      issueKey,
+    );
+
+    if (!result.success) {
+      dropdownEl.innerHTML =
+        '<div class="issue-tooltip-status-error">Failed to load transitions</div>';
+      return;
+    }
+
+    issueTransitionsCache[issueKey] = result.transitions;
+    renderTransitions(issueKey, result.transitions, dropdownEl);
+  } catch (error) {
+    console.error("Failed to load transitions:", error);
+    dropdownEl.innerHTML =
+      '<div class="issue-tooltip-status-error">Error loading transitions</div>';
+  }
+}
+
+// Render transitions in dropdown
+function renderTransitions(issueKey, transitions, dropdownEl) {
+  if (!transitions || transitions.length === 0) {
+    dropdownEl.innerHTML =
+      '<div class="issue-tooltip-status-empty">No transitions available</div>';
+    return;
+  }
+
+  dropdownEl.innerHTML = transitions
+    .map(
+      (t) => `
+    <button class="issue-tooltip-transition-btn" data-transition-id="${t.id}" data-transition-name="${t.name}">
+      ${t.name}
+    </button>
+  `,
+    )
+    .join("");
+
+  // Add click handlers
+  dropdownEl
+    .querySelectorAll(".issue-tooltip-transition-btn")
+    .forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const transitionId = btn.dataset.transitionId;
+        const transitionName = btn.dataset.transitionName;
+
+        // Update UI to show loading
+        btn.disabled = true;
+        btn.innerHTML = `<span class="issue-tooltip-transition-loading"></span> ${transitionName}`;
+
+        try {
+          const result = await window.electronAPI.jiraTransitionIssue(
+            jiraConfig,
+            issueKey,
+            transitionId,
+          );
+
+          if (result.success) {
+            // Update the status badge
+            const statusBadge = issueTooltip.querySelector(
+              ".issue-status-badge",
+            );
+            if (statusBadge) {
+              statusBadge.textContent = transitionName;
+            }
+
+            // Clear cache and close dropdown
+            delete issueTransitionsCache[issueKey];
+            dropdownEl.classList.add("hidden");
+
+            showNotification(`Status updated to "${transitionName}"`);
+          } else {
+            showNotification(`Failed to update status: ${result.error}`, true);
+            btn.disabled = false;
+            btn.textContent = transitionName;
+          }
+        } catch (error) {
+          console.error("Failed to transition issue:", error);
+          showNotification("Failed to update status", true);
+          btn.disabled = false;
+          btn.textContent = transitionName;
+        }
+      });
+    });
 }
 
 function positionIssueTooltip(tooltip, x, y) {
@@ -6186,10 +6408,17 @@ function positionIssueTooltip(tooltip, x, y) {
   tooltip.style.top = `${top}px`;
 }
 
-function hideIssueTooltip() {
+function hideIssueTooltip(forceClose = false) {
   if (issueTooltip) {
+    // Don't hide if in sticky mode unless force close
+    if (isTooltipSticky && !forceClose) {
+      return;
+    }
+
     issueTooltip.classList.add("hidden");
+    issueTooltip.classList.remove("issue-tooltip-sticky");
     currentIssueKey = null;
+    isTooltipSticky = false;
   }
 }
 
@@ -6218,13 +6447,23 @@ if (noteEditor) {
   noteEditor.addEventListener("mouseover", (e) => {
     const issueLink = e.target.closest(".jira-issue-link");
     if (issueLink) {
-      showIssueTooltip(issueLink, e.pageX, e.pageY);
+      // If Ctrl is held, make it sticky
+      const sticky = e.ctrlKey;
+      showIssueTooltip(issueLink, e.pageX, e.pageY, sticky);
     }
   });
 
   noteEditor.addEventListener("mouseout", (e) => {
     const issueLink = e.target.closest(".jira-issue-link");
     if (issueLink) {
+      // Check if we're moving to the tooltip itself
+      const relatedTarget = e.relatedTarget;
+      if (
+        issueTooltip &&
+        (issueTooltip === relatedTarget || issueTooltip.contains(relatedTarget))
+      ) {
+        return; // Don't hide if moving to tooltip
+      }
       hideIssueTooltip();
     }
   });
@@ -6235,17 +6474,47 @@ if (noteReadView) {
   noteReadView.addEventListener("mouseover", (e) => {
     const issueLink = e.target.closest(".jira-issue-link");
     if (issueLink) {
-      showIssueTooltip(issueLink, e.pageX, e.pageY);
+      // If Ctrl is held, make it sticky
+      const sticky = e.ctrlKey;
+      showIssueTooltip(issueLink, e.pageX, e.pageY, sticky);
     }
   });
 
   noteReadView.addEventListener("mouseout", (e) => {
     const issueLink = e.target.closest(".jira-issue-link");
     if (issueLink) {
+      // Check if we're moving to the tooltip itself
+      const relatedTarget = e.relatedTarget;
+      if (
+        issueTooltip &&
+        (issueTooltip === relatedTarget || issueTooltip.contains(relatedTarget))
+      ) {
+        return; // Don't hide if moving to tooltip
+      }
       hideIssueTooltip();
     }
   });
 }
+
+// Close sticky tooltip when clicking outside
+document.addEventListener("click", (e) => {
+  if (isTooltipSticky && issueTooltip) {
+    // Check if click is outside the tooltip
+    if (
+      !issueTooltip.contains(e.target) &&
+      !e.target.closest(".jira-issue-link")
+    ) {
+      hideIssueTooltip(true);
+    }
+  }
+});
+
+// Close sticky tooltip on Escape key
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && isTooltipSticky) {
+    hideIssueTooltip(true);
+  }
+});
 
 // Confirm link issue
 if (confirmLinkJiraBtn) {
@@ -6279,7 +6548,7 @@ function insertJiraLinkAtCursor(issueKey, issueUrl, summary, status) {
   link.href = issueUrl;
   link.className = "jira-issue-link";
   link.textContent = `${issueKey}`;
-  link.title = `${summary}\nStatus: ${status || "Unknown"}\nClick to open in Jira`;
+  // Removed title attribute to prevent duplicate tooltips (custom issue tooltip is shown on hover)
   link.target = "_blank";
   link.contentEditable = "false";
   link.dataset.jiraUrl = issueUrl;
@@ -6993,7 +7262,7 @@ function insertJiraLinkInNote(issueKey, issueUrl, summary, status) {
   link.href = issueUrl;
   link.className = "jira-issue-link";
   link.textContent = `${issueKey}`;
-  link.title = `${summary}\nStatus: ${status || "Unknown"}\nClick to open in Jira`;
+  // Removed title attribute to prevent duplicate tooltips (custom issue tooltip is shown on hover)
   link.target = "_blank";
   link.contentEditable = "false";
   link.dataset.jiraUrl = issueUrl;

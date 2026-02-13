@@ -4913,8 +4913,13 @@ body.light-theme .toolbar-select option {
   padding: 0;
   pointer-events: none;
   transition: opacity 0.2s, transform 0.2s;
-  overflow: hidden;
+  overflow: visible;
   backdrop-filter: blur(10px);
+}
+
+/* Enable pointer events for sticky tooltip so user can interact with it */
+.issue-tooltip.issue-tooltip-sticky {
+  pointer-events: auto;
 }
 
 .issue-tooltip.hidden {
@@ -4993,6 +4998,7 @@ body.light-theme .toolbar-select option {
   flex-direction: column;
   gap: 16px;
   padding: 18px;
+  overflow: visible;
 }
 
 .issue-tooltip-summary {
@@ -5012,12 +5018,14 @@ body.light-theme .toolbar-select option {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 14px;
+  overflow: visible;
 }
 
 .issue-tooltip-item {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  overflow: visible;
 }
 
 .issue-tooltip-label {
@@ -5129,6 +5137,154 @@ body.light-theme .toolbar-select option {
   color: #ef4444;
   font-size: 0.9rem;
   font-weight: 500;
+}
+
+/* Issue Tooltip - Sticky Mode & Close Button */
+.issue-tooltip-sticky {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 2px rgba(99, 102, 241, 0.5);
+}
+
+.issue-tooltip-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  transition: all 0.2s;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.issue-tooltip-close:hover {
+  background: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+[data-theme="light"] .issue-tooltip-close {
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .issue-tooltip-close:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #dc2626;
+}
+
+.issue-tooltip-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Issue Tooltip - Status Update Dropdown */
+.issue-tooltip-status-item {
+  position: relative;
+}
+
+.issue-tooltip-status-wrapper {
+  position: relative;
+}
+
+.issue-tooltip-status-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s;
+}
+
+.issue-tooltip-status-btn:hover {
+  opacity: 0.85;
+}
+
+.issue-tooltip-status-arrow {
+  opacity: 0.6;
+  transition: transform 0.2s;
+}
+
+.issue-tooltip-status-btn:hover .issue-tooltip-status-arrow {
+  opacity: 1;
+}
+
+.issue-tooltip-status-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 6px;
+  min-width: 180px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+  border: 1px solid rgba(100, 116, 139, 0.4);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  z-index: 1000000;
+}
+
+[data-theme="light"] .issue-tooltip-status-dropdown {
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.issue-tooltip-status-dropdown.hidden {
+  display: none;
+}
+
+.issue-tooltip-transition-btn {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.15s;
+}
+
+.issue-tooltip-transition-btn:hover {
+  background: var(--hover-bg);
+}
+
+.issue-tooltip-transition-btn:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.issue-tooltip-transition-loading {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.issue-tooltip-status-loading,
+.issue-tooltip-status-error,
+.issue-tooltip-status-empty {
+  padding: 12px 14px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.issue-tooltip-status-error {
+  color: #ef4444;
 }
 
 /* Jira Link in Notes - Clickable */

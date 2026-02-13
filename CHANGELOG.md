@@ -2,6 +2,27 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
+## [1.0.35] - 2026-02-14
+
+### Improved
+
+1. Increased minimum window width
+
+Changed minWidth from 650 to 750 pixels in main.js:255
+Also increased default width from 750 to 800 pixels
+2. Ctrl+Hover sticky tooltip with close button
+
+Hold Ctrl while hovering over an issue number to pin the tooltip
+A close button (×) appears in the header to dismiss the tooltip
+The tooltip stays open even when you move your mouse away
+Regular hover (without Ctrl) still works as before - tooltip disappears on mouseout
+3. Status update from details window
+
+In sticky mode, the status shows a dropdown arrow
+Click on the status to see available transitions
+Click a transition to update the issue status directly
+Shows a notification on success/failure
+
 ## [1.0.34] - 2026-02-12
 
 ### Improved

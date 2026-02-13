@@ -133,6 +133,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ),
   jiraAddToSprint: (config, sprintId, issueKey) =>
     ipcRenderer.invoke("jira-add-to-sprint", config, sprintId, issueKey),
+  jiraGetTransitions: (config, issueKey) =>
+    ipcRenderer.invoke("jira-get-transitions", config, issueKey),
+  jiraTransitionIssue: (config, issueKey, transitionId) =>
+    ipcRenderer.invoke("jira-transition-issue", config, issueKey, transitionId),
 
   // Quit app
   quitApp: () => ipcRenderer.invoke("quit-app"),
