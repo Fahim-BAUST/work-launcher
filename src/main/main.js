@@ -249,11 +249,11 @@ app.on("second-instance", () => {
  */
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 800,
+    width: 1000,
     height: 950,
     resizable: true,
-    minWidth: 1000,
-    minHeight: 700,
+    minWidth: 800,
+    minHeight: 600,
     icon: getAssetPath("icon.ico"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),

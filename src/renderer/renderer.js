@@ -6367,6 +6367,9 @@ function renderTransitions(issueKey, transitions, dropdownEl) {
               statusBadge.textContent = transitionName;
             }
 
+            // Update all jira-issue-link elements with this issue key
+            updateJiraLinkStatusStyling(issueKey, transitionName);
+
             // Clear cache and close dropdown
             delete issueTransitionsCache[issueKey];
             dropdownEl.classList.add("hidden");
@@ -6419,6 +6422,68 @@ function hideIssueTooltip(forceClose = false) {
     issueTooltip.classList.remove("issue-tooltip-sticky");
     currentIssueKey = null;
     isTooltipSticky = false;
+  }
+}
+
+// Update all jira-issue-link elements with the given issue key to reflect status change
+function updateJiraLinkStatusStyling(issueKey, status) {
+  const statusLower = status.toLowerCase();
+
+  // Find all links with this issue key in both editor and read view
+  const allLinks = [...document.querySelectorAll(".jira-issue-link")];
+
+  // Status-to-class mapping for different visual states
+  const statusClasses = {
+    resolved: "jira-issue-resolved",
+    done: "jira-issue-done",
+    closed: "jira-issue-closed",
+    "in progress": "jira-issue-in-progress",
+    "in review": "jira-issue-in-review",
+    testing: "jira-issue-testing",
+    blocked: "jira-issue-blocked",
+    "to do": "jira-issue-todo",
+    open: "jira-issue-open",
+    backlog: "jira-issue-backlog",
+    "dev complete": "jira-issue-dev-complete",
+    validation: "jira-issue-validation",
+    "qa testing passed": "jira-issue-qa-passed",
+    "qa testing failed": "jira-issue-qa-failed",
+  };
+
+  // All possible status classes to remove
+  const allStatusClasses = [
+    "jira-issue-resolved",
+    "jira-issue-done",
+    "jira-issue-closed",
+    "jira-issue-in-progress",
+    "jira-issue-in-review",
+    "jira-issue-testing",
+    "jira-issue-blocked",
+    "jira-issue-todo",
+    "jira-issue-open",
+    "jira-issue-backlog",
+    "jira-issue-dev-complete",
+    "jira-issue-validation",
+    "jira-issue-qa-passed",
+    "jira-issue-qa-failed",
+  ];
+
+  for (const link of allLinks) {
+    // Check if this link matches the issue key
+    const linkText = link.textContent.trim();
+    if (linkText === issueKey) {
+      // Update the data attribute
+      link.dataset.jiraStatus = status;
+
+      // Remove all status classes first
+      link.classList.remove(...allStatusClasses);
+
+      // Add the appropriate status class
+      const statusClass = statusClasses[statusLower];
+      if (statusClass) {
+        link.classList.add(statusClass);
+      }
+    }
   }
 }
 
@@ -6554,14 +6619,9 @@ function insertJiraLinkAtCursor(issueKey, issueUrl, summary, status) {
   link.dataset.jiraUrl = issueUrl;
   link.dataset.jiraStatus = status || "";
 
-  // Add resolved/closed class
-  if (
-    status &&
-    (status.toLowerCase() === "resolved" ||
-      status.toLowerCase() === "closed" ||
-      status.toLowerCase() === "done")
-  ) {
-    link.classList.add("jira-issue-resolved");
+  // Apply status-based styling using the shared function
+  if (status) {
+    applyJiraLinkStatusClass(link, status);
   }
 
   // Use saved selection range if available
@@ -7268,14 +7328,9 @@ function insertJiraLinkInNote(issueKey, issueUrl, summary, status) {
   link.dataset.jiraUrl = issueUrl;
   link.dataset.jiraStatus = status || "";
 
-  // Add resolved/closed class
-  if (
-    status &&
-    (status.toLowerCase() === "resolved" ||
-      status.toLowerCase() === "closed" ||
-      status.toLowerCase() === "done")
-  ) {
-    link.classList.add("jira-issue-resolved");
+  // Apply status-based styling using the shared function
+  if (status) {
+    applyJiraLinkStatusClass(link, status);
   }
 
   // Use saved selection range if available
@@ -7356,13 +7411,10 @@ async function updateJiraLinkStatuses() {
 
   for (const link of links) {
     try {
-      // Skip if status already cached
+      // Skip if status already cached and already styled
       if (link.dataset.jiraStatus) {
         // Apply styling based on cached status
-        const status = link.dataset.jiraStatus.toLowerCase();
-        if (status === "resolved" || status === "closed" || status === "done") {
-          link.classList.add("jira-issue-resolved");
-        }
+        applyJiraLinkStatusClass(link, link.dataset.jiraStatus);
         continue;
       }
 
@@ -7388,21 +7440,62 @@ async function updateJiraLinkStatuses() {
           );
         }
 
-        // Apply styling for resolved/closed issues
-        const statusLower = status.toLowerCase();
-        if (
-          statusLower === "resolved" ||
-          statusLower === "closed" ||
-          statusLower === "done"
-        ) {
-          link.classList.add("jira-issue-resolved");
-        } else {
-          link.classList.remove("jira-issue-resolved");
-        }
+        // Apply styling based on status
+        applyJiraLinkStatusClass(link, status);
       }
     } catch (error) {
       console.error("Failed to update Jira link status:", error);
     }
+  }
+}
+
+// Apply the appropriate status class to a jira-issue-link
+function applyJiraLinkStatusClass(link, status) {
+  const statusLower = status.toLowerCase();
+
+  // All possible status classes to remove
+  const allStatusClasses = [
+    "jira-issue-resolved",
+    "jira-issue-done",
+    "jira-issue-closed",
+    "jira-issue-in-progress",
+    "jira-issue-in-review",
+    "jira-issue-testing",
+    "jira-issue-blocked",
+    "jira-issue-todo",
+    "jira-issue-open",
+    "jira-issue-backlog",
+    "jira-issue-dev-complete",
+    "jira-issue-validation",
+    "jira-issue-qa-passed",
+    "jira-issue-qa-failed",
+  ];
+
+  // Status-to-class mapping for different visual states
+  const statusClasses = {
+    resolved: "jira-issue-resolved",
+    done: "jira-issue-done",
+    closed: "jira-issue-closed",
+    "in progress": "jira-issue-in-progress",
+    "in review": "jira-issue-in-review",
+    testing: "jira-issue-testing",
+    blocked: "jira-issue-blocked",
+    "to do": "jira-issue-todo",
+    open: "jira-issue-open",
+    backlog: "jira-issue-backlog",
+    "dev complete": "jira-issue-dev-complete",
+    validation: "jira-issue-validation",
+    "qa testing passed": "jira-issue-qa-passed",
+    "qa testing failed": "jira-issue-qa-failed",
+  };
+
+  // Remove all status classes first
+  link.classList.remove(...allStatusClasses);
+
+  // Add the appropriate status class
+  const statusClass = statusClasses[statusLower];
+  if (statusClass) {
+    link.classList.add(statusClass);
   }
 }
 

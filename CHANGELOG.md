@@ -2,6 +2,17 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
+## [1.0.36] - 2026-02-14
+
+### Improved
+
+The fix ensures:
+
+When inserting new Jira links, the correct status styling is applied immediately
+When changing status via the tooltip, links update their appearance
+When loading notes, all links fetch and display their current status styling
+
+
 ## [1.0.35] - 2026-02-14
 
 ### Improved
