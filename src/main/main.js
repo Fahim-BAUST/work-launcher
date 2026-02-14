@@ -1456,6 +1456,24 @@ function setupIpcHandlers() {
     },
   );
 
+  // Assign a Jira issue to a user
+  ipcMain.handle(
+    "jira-assign-issue",
+    async (event, config, issueKey, accountId) => {
+      try {
+        await jiraApiRequest(
+          config,
+          `/rest/api/3/issue/${issueKey}/assignee`,
+          "PUT",
+          { accountId: accountId || null },
+        );
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    },
+  );
+
   // Quit app completely
   ipcMain.handle("quit-app", () => {
     app.isQuitting = true;

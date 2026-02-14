@@ -2,6 +2,15 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
+## [1.0.37] - 2026-02-14
+
+### Improved
+
+- Hover over images → click copy/delete buttons
+- Right-click images → use Copy/Cut/Delete from context menu
+- Select image → use Ctrl+C, Ctrl+X, or Delete key
+- Searchable Dropdown Features:
+
 ## [1.0.36] - 2026-02-14
 
 ### Improved

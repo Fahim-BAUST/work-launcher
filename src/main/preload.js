@@ -137,6 +137,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("jira-get-transitions", config, issueKey),
   jiraTransitionIssue: (config, issueKey, transitionId) =>
     ipcRenderer.invoke("jira-transition-issue", config, issueKey, transitionId),
+  jiraAssignIssue: (config, issueKey, accountId) =>
+    ipcRenderer.invoke("jira-assign-issue", config, issueKey, accountId),
 
   // Quit app
   quitApp: () => ipcRenderer.invoke("quit-app"),

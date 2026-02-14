@@ -2687,12 +2687,13 @@ function wrapImagesWithResizeHandles() {
         parent.appendChild(handle);
       }
 
-      // Verify overlay exists
+      // Always recreate overlay to ensure event listeners are attached
       let overlay = parent.querySelector(".img-overlay");
-      if (!overlay) {
-        overlay = createImageOverlay(img, parent);
-        parent.appendChild(overlay);
+      if (overlay) {
+        overlay.remove();
       }
+      overlay = createImageOverlay(img, parent);
+      parent.appendChild(overlay);
 
       // Always reattach event listener (in case it was lost on reload)
       // Remove old listener first by cloning and replacing
@@ -2798,28 +2799,74 @@ async function copyImageToClipboard(img) {
     if (img.src.startsWith("data:")) {
       const response = await fetch(img.src);
       const blob = await response.blob();
-      await navigator.clipboard.write([
-        new ClipboardItem({ [blob.type]: blob }),
-      ]);
+
+      // Check if clipboard supports this type
+      const clipboardItem = new ClipboardItem({
+        [blob.type]: blob,
+      });
+
+      await navigator.clipboard.write([clipboardItem]);
       showNotification("Image copied to clipboard");
+      return true;
     } else {
-      // For external URLs, copy the URL
+      // For external URLs, we can't copy the actual image directly
+      // Copy the URL instead
       await navigator.clipboard.writeText(img.src);
       showNotification("Image URL copied to clipboard");
+      return true;
     }
   } catch (err) {
     console.error("Failed to copy image:", err);
-    // Fallback: select the image for manual copy
+
+    // Try alternative approach: create a temporary canvas
+    try {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      // Wait for image to load if needed
+      if (!img.complete) {
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+        });
+      }
+
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      ctx.drawImage(img, 0, 0);
+
+      // Convert canvas to blob
+      const blob = await new Promise((resolve) => {
+        canvas.toBlob(resolve, "image/png");
+      });
+
+      if (blob) {
+        await navigator.clipboard.write([
+          new ClipboardItem({ "image/png": blob }),
+        ]);
+        showNotification("Image copied to clipboard");
+        return true;
+      }
+    } catch (canvasErr) {
+      console.error("Canvas fallback failed:", canvasErr);
+    }
+
+    // Final fallback: just select the image
     selectImage(img);
-    showNotification("Select and use Ctrl+C to copy");
+    showNotification("Please use Ctrl+C to copy", true);
+    return false;
   }
 }
 
 // Cut image (copy + delete)
 async function cutImage(img, wrapper) {
-  await copyImageToClipboard(img);
-  deleteImage(wrapper);
-  showNotification("Image cut to clipboard");
+  const success = await copyImageToClipboard(img);
+  if (success) {
+    deleteImage(wrapper);
+    showNotification("Image cut to clipboard");
+  } else {
+    showNotification("Failed to cut image", true);
+  }
 }
 
 // Delete image
@@ -2880,7 +2927,10 @@ noteEditor.addEventListener("contextmenu", (e) => {
 
 // Handle context menu clicks
 imageContextMenu.addEventListener("click", async (e) => {
-  const action = e.target.dataset.action;
+  const menuItem = e.target.closest(".context-menu-item");
+  if (!menuItem) return;
+
+  const action = menuItem.dataset.action;
   if (!action || !contextMenuTargetImg) return;
 
   switch (action) {
@@ -6017,6 +6067,7 @@ let issueTooltip = null;
 let currentIssueKey = null; // Track current issue to prevent duplicate fetches
 let isTooltipSticky = false; // Track if tooltip is in sticky (pinned) mode
 let issueTransitionsCache = {}; // Cache transitions for each issue
+let issueAssigneesCache = {}; // Cache assignable users per project
 
 function createIssueTooltip() {
   if (issueTooltip) return issueTooltip;
@@ -6139,21 +6190,26 @@ async function showIssueTooltip(issueLink, x, y, sticky = false) {
       description = description.substring(0, 300) + "...";
     }
 
-    // Build status section - if sticky, show dropdown for status change
+    // Build status section - if sticky, show searchable dropdown for status change
     let statusSection = "";
     if (isTooltipSticky) {
       statusSection = `
         <div class="issue-tooltip-item issue-tooltip-status-item">
           <span class="issue-tooltip-label">Status</span>
-          <div class="issue-tooltip-status-wrapper">
-            <button class="issue-tooltip-status-btn" data-issue-key="${issueKey}">
-              <span class="issue-tooltip-badge issue-status-badge">${status}</span>
-              <svg class="issue-tooltip-status-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M6 9l6 6 6-6"/>
+          <div class="issue-tooltip-searchable-dropdown" data-type="status" data-issue-key="${issueKey}">
+            <button class="issue-tooltip-dropdown-trigger issue-tooltip-status-trigger" data-current-status="${status}">
+              <span class="dropdown-trigger-text">${status}</span>
+              <svg class="dropdown-arrow" width="10" height="6" viewBox="0 0 10 6" fill="none">
+                <path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </button>
-            <div class="issue-tooltip-status-dropdown hidden" data-issue-key="${issueKey}">
-              <div class="issue-tooltip-status-loading">Loading transitions...</div>
+            <div class="issue-tooltip-dropdown-panel hidden">
+              <div class="issue-tooltip-dropdown-search-wrap">
+                <input type="text" class="issue-tooltip-dropdown-search" placeholder="Search status..." />
+              </div>
+              <div class="issue-tooltip-dropdown-list">
+                <div class="issue-tooltip-dropdown-loading">Loading...</div>
+              </div>
             </div>
           </div>
         </div>
@@ -6163,6 +6219,41 @@ async function showIssueTooltip(issueLink, x, y, sticky = false) {
         <div class="issue-tooltip-item">
           <span class="issue-tooltip-label">Status</span>
           <span class="issue-tooltip-badge issue-status-badge">${status}</span>
+        </div>
+      `;
+    }
+
+    // Build assignee section - if sticky, show searchable dropdown for assignee change
+    const projectKey = issue.fields.project?.key || "";
+    const currentAssigneeId = issue.fields.assignee?.accountId || "";
+    let assigneeSection = "";
+    if (isTooltipSticky) {
+      assigneeSection = `
+        <div class="issue-tooltip-item issue-tooltip-assignee-item">
+          <span class="issue-tooltip-label">Assignee</span>
+          <div class="issue-tooltip-searchable-dropdown" data-type="assignee" data-issue-key="${issueKey}" data-project-key="${projectKey}" data-current-id="${currentAssigneeId}">
+            <button class="issue-tooltip-dropdown-trigger issue-tooltip-assignee-trigger" data-current-id="${currentAssigneeId}">
+              <span class="dropdown-trigger-text">${assignee}</span>
+              <svg class="dropdown-arrow" width="10" height="6" viewBox="0 0 10 6" fill="none">
+                <path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <div class="issue-tooltip-dropdown-panel hidden">
+              <div class="issue-tooltip-dropdown-search-wrap">
+                <input type="text" class="issue-tooltip-dropdown-search" placeholder="Search assignee..." />
+              </div>
+              <div class="issue-tooltip-dropdown-list">
+                <div class="issue-tooltip-dropdown-loading">Loading...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      assigneeSection = `
+        <div class="issue-tooltip-item">
+          <span class="issue-tooltip-label">Assignee</span>
+          <span class="issue-tooltip-value">${assignee}</span>
         </div>
       `;
     }
@@ -6187,10 +6278,7 @@ async function showIssueTooltip(issueLink, x, y, sticky = false) {
         
         <div class="issue-tooltip-grid">
           ${statusSection}
-          <div class="issue-tooltip-item">
-            <span class="issue-tooltip-label">Assignee</span>
-            <span class="issue-tooltip-value">${assignee}</span>
-          </div>
+          ${assigneeSection}
           <div class="issue-tooltip-item">
             <span class="issue-tooltip-label">Project</span>
             <span class="issue-tooltip-value">${project}</span>
@@ -6230,25 +6318,8 @@ async function showIssueTooltip(issueLink, x, y, sticky = false) {
         });
       }
 
-      // Add status button handler
-      const statusBtn = tooltip.querySelector(".issue-tooltip-status-btn");
-      if (statusBtn) {
-        statusBtn.addEventListener("click", async (e) => {
-          e.stopPropagation();
-          const dropdown = tooltip.querySelector(
-            ".issue-tooltip-status-dropdown",
-          );
-          if (dropdown) {
-            const isHidden = dropdown.classList.contains("hidden");
-            dropdown.classList.toggle("hidden");
-
-            if (isHidden) {
-              // Load transitions if not cached
-              await loadIssueTransitions(issueKey, dropdown);
-            }
-          }
-        });
-      }
+      // Initialize searchable dropdowns
+      initSearchableDropdowns(tooltip, issueKey);
     }
 
     // Reposition after content loaded
@@ -6291,103 +6362,271 @@ async function showIssueTooltip(issueLink, x, y, sticky = false) {
   }
 }
 
-// Load transitions for an issue
-async function loadIssueTransitions(issueKey, dropdownEl) {
-  try {
-    // Check cache first
-    if (issueTransitionsCache[issueKey]) {
-      renderTransitions(issueKey, issueTransitionsCache[issueKey], dropdownEl);
-      return;
-    }
+// Initialize all searchable dropdowns in the tooltip
+function initSearchableDropdowns(tooltip, issueKey) {
+  const dropdowns = tooltip.querySelectorAll(
+    ".issue-tooltip-searchable-dropdown",
+  );
 
-    const result = await window.electronAPI.jiraGetTransitions(
-      jiraConfig,
-      issueKey,
+  dropdowns.forEach((dropdown) => {
+    const type = dropdown.dataset.type; // 'status' or 'assignee'
+    const trigger = dropdown.querySelector(".issue-tooltip-dropdown-trigger");
+    const panel = dropdown.querySelector(".issue-tooltip-dropdown-panel");
+    const searchInput = dropdown.querySelector(
+      ".issue-tooltip-dropdown-search",
+    );
+    const listContainer = dropdown.querySelector(
+      ".issue-tooltip-dropdown-list",
     );
 
-    if (!result.success) {
-      dropdownEl.innerHTML =
-        '<div class="issue-tooltip-status-error">Failed to load transitions</div>';
-      return;
+    // Load options on first open
+    let optionsLoaded = false;
+    let allOptions = [];
+
+    // Toggle dropdown
+    trigger.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const isHidden = panel.classList.contains("hidden");
+
+      // Close other dropdowns first
+      tooltip.querySelectorAll(".issue-tooltip-dropdown-panel").forEach((p) => {
+        if (p !== panel) p.classList.add("hidden");
+      });
+
+      panel.classList.toggle("hidden");
+
+      if (isHidden && !optionsLoaded) {
+        // Load options
+        if (type === "status") {
+          allOptions = await loadStatusOptions(issueKey, listContainer);
+        } else if (type === "assignee") {
+          const projectKey = dropdown.dataset.projectKey;
+          const currentId = dropdown.dataset.currentId;
+          allOptions = await loadAssigneeOptions(
+            projectKey,
+            currentId,
+            listContainer,
+          );
+        }
+        optionsLoaded = true;
+
+        // Attach click handlers to options
+        attachOptionClickHandlers(dropdown, trigger, panel, issueKey, type);
+      }
+
+      if (isHidden) {
+        searchInput.value = "";
+        searchInput.focus();
+        filterDropdownOptions(listContainer, "", allOptions, type);
+      }
+    });
+
+    // Search filtering
+    searchInput.addEventListener("input", (e) => {
+      e.stopPropagation();
+      const query = searchInput.value.toLowerCase();
+      filterDropdownOptions(listContainer, query, allOptions, type);
+      attachOptionClickHandlers(dropdown, trigger, panel, issueKey, type);
+    });
+
+    // Prevent clicks inside panel from closing it
+    panel.addEventListener("click", (e) => e.stopPropagation());
+    searchInput.addEventListener("click", (e) => e.stopPropagation());
+  });
+
+  // Close dropdowns when clicking outside
+  document.addEventListener(
+    "click",
+    (e) => {
+      if (!tooltip.contains(e.target)) {
+        tooltip
+          .querySelectorAll(".issue-tooltip-dropdown-panel")
+          .forEach((p) => {
+            p.classList.add("hidden");
+          });
+      }
+    },
+    { once: true },
+  );
+}
+
+// Load status transitions for the dropdown
+async function loadStatusOptions(issueKey, listContainer) {
+  listContainer.innerHTML =
+    '<div class="issue-tooltip-dropdown-loading">Loading...</div>';
+
+  try {
+    let transitions;
+    if (issueTransitionsCache[issueKey]) {
+      transitions = issueTransitionsCache[issueKey];
+    } else {
+      const result = await window.electronAPI.jiraGetTransitions(
+        jiraConfig,
+        issueKey,
+      );
+      if (!result.success) {
+        listContainer.innerHTML =
+          '<div class="issue-tooltip-dropdown-error">Failed to load</div>';
+        return [];
+      }
+      transitions = result.transitions;
+      issueTransitionsCache[issueKey] = transitions;
     }
 
-    issueTransitionsCache[issueKey] = result.transitions;
-    renderTransitions(issueKey, result.transitions, dropdownEl);
+    renderDropdownOptions(
+      listContainer,
+      transitions.map((t) => ({ id: t.id, name: t.name })),
+      "status",
+    );
+    return transitions.map((t) => ({ id: t.id, name: t.name }));
   } catch (error) {
     console.error("Failed to load transitions:", error);
-    dropdownEl.innerHTML =
-      '<div class="issue-tooltip-status-error">Error loading transitions</div>';
+    listContainer.innerHTML =
+      '<div class="issue-tooltip-dropdown-error">Error loading</div>';
+    return [];
   }
 }
 
-// Render transitions in dropdown
-function renderTransitions(issueKey, transitions, dropdownEl) {
-  if (!transitions || transitions.length === 0) {
-    dropdownEl.innerHTML =
-      '<div class="issue-tooltip-status-empty">No transitions available</div>';
+// Load assignable users for the dropdown
+async function loadAssigneeOptions(projectKey, currentId, listContainer) {
+  listContainer.innerHTML =
+    '<div class="issue-tooltip-dropdown-loading">Loading...</div>';
+
+  try {
+    let users;
+    if (issueAssigneesCache[projectKey]) {
+      users = issueAssigneesCache[projectKey];
+    } else {
+      const result = await window.electronAPI.jiraGetUsers(
+        jiraConfig,
+        projectKey,
+      );
+      if (!result.success) {
+        listContainer.innerHTML =
+          '<div class="issue-tooltip-dropdown-error">Failed to load</div>';
+        return [];
+      }
+      users = result.users || [];
+      issueAssigneesCache[projectKey] = users;
+    }
+
+    // Add Unassigned option at the beginning
+    const options = [
+      { id: "", name: "Unassigned" },
+      ...users.map((u) => ({ id: u.accountId, name: u.displayName })),
+    ];
+
+    renderDropdownOptions(listContainer, options, "assignee", currentId);
+    return options;
+  } catch (error) {
+    console.error("Failed to load assignees:", error);
+    listContainer.innerHTML =
+      '<div class="issue-tooltip-dropdown-error">Error loading</div>';
+    return [];
+  }
+}
+
+// Render dropdown options
+function renderDropdownOptions(listContainer, options, type, selectedId = "") {
+  if (options.length === 0) {
+    listContainer.innerHTML =
+      '<div class="issue-tooltip-dropdown-empty">No options available</div>';
     return;
   }
 
-  dropdownEl.innerHTML = transitions
+  listContainer.innerHTML = options
     .map(
-      (t) => `
-    <button class="issue-tooltip-transition-btn" data-transition-id="${t.id}" data-transition-name="${t.name}">
-      ${t.name}
+      (opt) => `
+    <button class="issue-tooltip-dropdown-option ${opt.id === selectedId ? "selected" : ""}" 
+            data-id="${opt.id}" data-name="${opt.name}" data-type="${type}">
+      ${type === "status" ? '<span class="option-status-dot"></span>' : ""}
+      <span class="option-name">${opt.name}</span>
+      ${opt.id === selectedId ? '<span class="option-check">✓</span>' : ""}
     </button>
   `,
     )
     .join("");
+}
 
-  // Add click handlers
-  dropdownEl
-    .querySelectorAll(".issue-tooltip-transition-btn")
-    .forEach((btn) => {
-      btn.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        const transitionId = btn.dataset.transitionId;
-        const transitionName = btn.dataset.transitionName;
+// Filter dropdown options by search query
+function filterDropdownOptions(listContainer, query, allOptions, type) {
+  const filtered = query
+    ? allOptions.filter((opt) => opt.name.toLowerCase().includes(query))
+    : allOptions;
 
-        // Update UI to show loading
-        btn.disabled = true;
-        btn.innerHTML = `<span class="issue-tooltip-transition-loading"></span> ${transitionName}`;
+  renderDropdownOptions(listContainer, filtered, type);
+}
 
-        try {
+// Attach click handlers to dropdown options
+function attachOptionClickHandlers(dropdown, trigger, panel, issueKey, type) {
+  const options = dropdown.querySelectorAll(".issue-tooltip-dropdown-option");
+
+  options.forEach((option) => {
+    option.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const id = option.dataset.id;
+      const name = option.dataset.name;
+
+      // Disable all options during operation
+      options.forEach((o) => (o.disabled = true));
+      option.classList.add("loading");
+
+      try {
+        let success = false;
+        let errorMsg = "";
+
+        if (type === "status") {
           const result = await window.electronAPI.jiraTransitionIssue(
             jiraConfig,
             issueKey,
-            transitionId,
+            id,
           );
+          success = result.success;
+          errorMsg = result.error || "Failed to update status";
 
-          if (result.success) {
-            // Update the status badge
-            const statusBadge = issueTooltip.querySelector(
-              ".issue-status-badge",
-            );
-            if (statusBadge) {
-              statusBadge.textContent = transitionName;
-            }
+          if (success) {
+            // Update trigger text
+            trigger.querySelector(".dropdown-trigger-text").textContent = name;
+            trigger.dataset.currentStatus = name;
 
-            // Update all jira-issue-link elements with this issue key
-            updateJiraLinkStatusStyling(issueKey, transitionName);
-
-            // Clear cache and close dropdown
+            // Update link styling and clear cache
             delete issueTransitionsCache[issueKey];
-            dropdownEl.classList.add("hidden");
-
-            showNotification(`Status updated to "${transitionName}"`);
-          } else {
-            showNotification(`Failed to update status: ${result.error}`, true);
-            btn.disabled = false;
-            btn.textContent = transitionName;
+            updateJiraLinkStatusStyling(issueKey, name);
+            showNotification(`Status updated to "${name}"`);
           }
-        } catch (error) {
-          console.error("Failed to transition issue:", error);
-          showNotification("Failed to update status", true);
-          btn.disabled = false;
-          btn.textContent = transitionName;
+        } else if (type === "assignee") {
+          const result = await window.electronAPI.jiraAssignIssue(
+            jiraConfig,
+            issueKey,
+            id || null,
+          );
+          success = result.success;
+          errorMsg = result.error || "Failed to update assignee";
+
+          if (success) {
+            // Update trigger text
+            trigger.querySelector(".dropdown-trigger-text").textContent = name;
+            trigger.dataset.currentId = id;
+            dropdown.dataset.currentId = id;
+            showNotification(`Assignee updated to "${name}"`);
+          }
         }
-      });
+
+        if (success) {
+          panel.classList.add("hidden");
+        } else {
+          showNotification(errorMsg, true);
+        }
+      } catch (error) {
+        console.error(`Failed to update ${type}:`, error);
+        showNotification(`Failed to update ${type}`, true);
+      }
+
+      // Re-enable options
+      options.forEach((o) => (o.disabled = false));
+      option.classList.remove("loading");
     });
+  });
 }
 
 function positionIssueTooltip(tooltip, x, y) {

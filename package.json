@@ -1,7 +1,7 @@
 {
   "name": "work-launcher",
   "productName": "Work Launcher",
-  "version": "1.0.36",
+  "version": "1.0.37",
   "description": "Automatically launch work applications on startup",
   "main": "src/main/main.js",
   "scripts": {
