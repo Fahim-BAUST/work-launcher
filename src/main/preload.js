@@ -123,6 +123,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("jira-create-issue", config, issueData),
   jiraGetIssue: (config, issueKey) =>
     ipcRenderer.invoke("jira-get-issue", config, issueKey),
+  jiraGetDevInfo: (config, issueId) =>
+    ipcRenderer.invoke("jira-get-dev-info", config, issueId),
   jiraUploadAttachment: (config, issueKey, imageData, filename) =>
     ipcRenderer.invoke(
       "jira-upload-attachment",

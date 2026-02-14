@@ -4124,6 +4124,9 @@ const previewIssueEpic = document.getElementById("previewIssueEpic");
 const previewIssueDescription = document.getElementById(
   "previewIssueDescription",
 );
+const previewIssueDevelopment = document.getElementById(
+  "previewIssueDevelopment",
+);
 const createJiraIssueModal = document.getElementById("createJiraIssueModal");
 const closeJiraModalBtn = document.getElementById("closeJiraModalBtn");
 const cancelJiraBtn = document.getElementById("cancelJiraBtn");
@@ -5256,6 +5259,9 @@ async function fetchIssuePreview(issueKey) {
   if (previewIssueEpic) previewIssueEpic.textContent = "Loading...";
   if (previewIssueDescription)
     previewIssueDescription.textContent = "Loading...";
+  if (previewIssueDevelopment)
+    previewIssueDevelopment.innerHTML =
+      '<span class="dev-loading">Loading...</span>';
 
   try {
     const result = await window.electronAPI.jiraGetIssue(jiraConfig, issueKey);
@@ -5314,6 +5320,11 @@ async function fetchIssuePreview(issueKey) {
       previewIssueDescription.textContent = displayDesc;
     }
 
+    // Fetch and display development info (PRs, branches, builds)
+    if (previewIssueDevelopment && issue.id) {
+      fetchAndDisplayDevInfo(issue.id);
+    }
+
     linkJiraPreview.classList.remove("loading");
     confirmLinkJiraBtn.disabled = false;
   } catch (error) {
@@ -5326,6 +5337,8 @@ async function fetchIssuePreview(issueKey) {
     if (previewIssueProject) previewIssueProject.textContent = "";
     if (previewIssueEpic) previewIssueEpic.textContent = "";
     if (previewIssueDescription) previewIssueDescription.textContent = "";
+    if (previewIssueDevelopment)
+      previewIssueDevelopment.innerHTML = '<span class="dev-no-data">-</span>';
     linkedIssueData = null;
     confirmLinkJiraBtn.disabled = true;
   }
@@ -5361,6 +5374,100 @@ function extractTextFromADF(adf) {
   }
 
   return text.trim() || "No description";
+}
+
+// Fetch and display development info (PRs, branches, builds) for a Jira issue
+async function fetchAndDisplayDevInfo(issueId) {
+  try {
+    const result = await window.electronAPI.jiraGetDevInfo(jiraConfig, issueId);
+
+    if (!result.success || !result.devInfo) {
+      previewIssueDevelopment.innerHTML =
+        '<span class="dev-no-data">No development info</span>';
+      return;
+    }
+
+    const { pullRequests, branches, builds } = result.devInfo;
+
+    // Build HTML for development info
+    let html = "";
+
+    // Pull Requests
+    if (pullRequests && pullRequests.length > 0) {
+      pullRequests.forEach((pr) => {
+        const statusClass = pr.status?.toLowerCase() || "open";
+        const prIcon = statusClass === "merged" ? "🔀" : "📥";
+        const prUrl = pr.url || "#";
+        const prName = pr.name || "Pull Request";
+
+        html += `
+          <div class="dev-pr-item">
+            <span class="dev-pr-icon">${prIcon}</span>
+            <a href="${prUrl}" class="dev-pr-name" target="_blank" title="${prName}">${prName}</a>
+            <span class="dev-pr-status ${statusClass}">${pr.status || "Open"}</span>
+          </div>
+        `;
+      });
+    }
+
+    // Branches (if no PRs, show branches)
+    if (
+      (!pullRequests || pullRequests.length === 0) &&
+      branches &&
+      branches.length > 0
+    ) {
+      branches.forEach((branch) => {
+        html += `
+          <div class="dev-branch-item">
+            <span>🌿</span>
+            <span class="dev-branch-name">${branch.name}</span>
+          </div>
+        `;
+      });
+    }
+
+    // Builds (show count summary)
+    if (builds && builds.length > 0) {
+      const successCount = builds.filter(
+        (b) => b.state === "successful",
+      ).length;
+      const failedCount = builds.filter((b) => b.state === "failed").length;
+      const inProgressCount = builds.filter(
+        (b) => b.state === "inprogress",
+      ).length;
+
+      html += `
+        <div class="dev-build-item">
+          <span>🔨</span>
+          <span>Builds: </span>
+          ${successCount > 0 ? `<span class="dev-build-status successful"></span> ${successCount} passed` : ""}
+          ${failedCount > 0 ? `<span class="dev-build-status failed"></span> ${failedCount} failed` : ""}
+          ${inProgressCount > 0 ? `<span class="dev-build-status inprogress"></span> ${inProgressCount} in progress` : ""}
+        </div>
+      `;
+    }
+
+    if (html === "") {
+      html = '<span class="dev-no-data">No PRs or branches linked</span>';
+    }
+
+    previewIssueDevelopment.innerHTML = html;
+
+    // Add click handler for PR links to open in external browser
+    previewIssueDevelopment.querySelectorAll(".dev-pr-name").forEach((link) => {
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        const url = link.getAttribute("href");
+        if (url && url !== "#") {
+          window.electronAPI.openUrl(url);
+        }
+      });
+    });
+  } catch (error) {
+    console.error("Error fetching dev info:", error);
+    previewIssueDevelopment.innerHTML =
+      '<span class="dev-no-data">Could not load dev info</span>';
+  }
 }
 
 // Add remove buttons to existing jira-inserted-tag elements (for loaded notes)
@@ -6305,6 +6412,13 @@ async function showIssueTooltip(issueLink, x, y, sticky = false) {
         `
             : ""
         }
+        
+        <div class="issue-tooltip-development-section">
+          <span class="issue-tooltip-label">🔀 Development</span>
+          <div class="issue-tooltip-development" id="tooltipDevInfo-${issueKey}">
+            <span class="dev-loading">Loading...</span>
+          </div>
+        </div>
       </div>
     `;
 
@@ -6320,6 +6434,11 @@ async function showIssueTooltip(issueLink, x, y, sticky = false) {
 
       // Initialize searchable dropdowns
       initSearchableDropdowns(tooltip, issueKey);
+    }
+
+    // Fetch and display development info
+    if (issue.id) {
+      fetchTooltipDevInfo(issue.id, issueKey);
     }
 
     // Reposition after content loaded
@@ -6359,6 +6478,101 @@ async function showIssueTooltip(issueLink, x, y, sticky = false) {
     }
 
     positionIssueTooltip(tooltip, x, y);
+  }
+}
+
+// Fetch and display development info for tooltip
+async function fetchTooltipDevInfo(issueId, issueKey) {
+  const devContainer = document.getElementById(`tooltipDevInfo-${issueKey}`);
+  if (!devContainer) return;
+
+  try {
+    const result = await window.electronAPI.jiraGetDevInfo(jiraConfig, issueId);
+
+    if (!result.success || !result.devInfo) {
+      devContainer.innerHTML =
+        '<span class="dev-no-data">No development info</span>';
+      return;
+    }
+
+    const { pullRequests, branches, builds } = result.devInfo;
+
+    // Build HTML for development info
+    let html = "";
+
+    // Pull Requests
+    if (pullRequests && pullRequests.length > 0) {
+      pullRequests.forEach((pr) => {
+        const statusClass = pr.status?.toLowerCase() || "open";
+        const prIcon = statusClass === "merged" ? "🔀" : "📥";
+        const prUrl = pr.url || "#";
+        const prName = pr.name || "Pull Request";
+        // Truncate long PR names
+        const displayName =
+          prName.length > 50 ? prName.substring(0, 50) + "..." : prName;
+
+        html += `
+          <div class="dev-pr-item tooltip-dev-pr">
+            <span class="dev-pr-icon">${prIcon}</span>
+            <a href="${prUrl}" class="dev-pr-name tooltip-dev-pr-link" target="_blank" title="${prName}">${displayName}</a>
+            <span class="dev-pr-status ${statusClass}">${pr.status || "Open"}</span>
+          </div>
+        `;
+      });
+    }
+
+    // Branches (if no PRs, show branches)
+    if (
+      (!pullRequests || pullRequests.length === 0) &&
+      branches &&
+      branches.length > 0
+    ) {
+      branches.slice(0, 3).forEach((branch) => {
+        html += `
+          <div class="dev-branch-item">
+            <span>🌿</span>
+            <span class="dev-branch-name">${branch.name}</span>
+          </div>
+        `;
+      });
+    }
+
+    // Builds summary
+    if (builds && builds.length > 0) {
+      const successCount = builds.filter(
+        (b) => b.state === "successful",
+      ).length;
+      const failedCount = builds.filter((b) => b.state === "failed").length;
+
+      let buildHtml = '<div class="dev-build-item"><span>🔨</span> ';
+      if (successCount > 0)
+        buildHtml += `<span class="dev-build-success">✓ ${successCount}</span> `;
+      if (failedCount > 0)
+        buildHtml += `<span class="dev-build-failed">✗ ${failedCount}</span>`;
+      buildHtml += "</div>";
+      html += buildHtml;
+    }
+
+    if (html === "") {
+      html = '<span class="dev-no-data">No PRs or branches linked</span>';
+    }
+
+    devContainer.innerHTML = html;
+
+    // Add click handler for PR links
+    devContainer.querySelectorAll(".tooltip-dev-pr-link").forEach((link) => {
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const url = link.getAttribute("href");
+        if (url && url !== "#") {
+          window.electronAPI.openUrl(url);
+        }
+      });
+    });
+  } catch (error) {
+    console.error("Error fetching tooltip dev info:", error);
+    devContainer.innerHTML = '<span class="dev-no-data">-</span>';
   }
 }
 

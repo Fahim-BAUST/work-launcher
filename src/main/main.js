@@ -1381,6 +1381,122 @@ function setupIpcHandlers() {
     }
   });
 
+  // Get development info (PRs, branches, builds) for a Jira issue
+  ipcMain.handle("jira-get-dev-info", async (event, config, issueId) => {
+    try {
+      // Fetch pull request information
+      const prResult = await jiraApiRequest(
+        config,
+        `/rest/dev-status/1.0/issue/detail?issueId=${issueId}&applicationType=GitHub&dataType=pullrequest`,
+      );
+
+      // Fetch branch information
+      let branchResult = null;
+      try {
+        branchResult = await jiraApiRequest(
+          config,
+          `/rest/dev-status/1.0/issue/detail?issueId=${issueId}&applicationType=GitHub&dataType=branch`,
+        );
+      } catch (e) {
+        // Branch info may not be available
+      }
+
+      // Fetch build information
+      let buildResult = null;
+      try {
+        buildResult = await jiraApiRequest(
+          config,
+          `/rest/dev-status/1.0/issue/detail?issueId=${issueId}&applicationType=GitHub&dataType=build`,
+        );
+      } catch (e) {
+        // Build info may not be available
+      }
+
+      // Process pull requests
+      const pullRequests = [];
+      if (prResult?.detail) {
+        for (const detail of prResult.detail) {
+          if (detail.pullRequests) {
+            for (const pr of detail.pullRequests) {
+              pullRequests.push({
+                id: pr.id,
+                name: pr.name,
+                status: pr.status,
+                url: pr.url,
+                author: pr.author?.name || pr.author?.displayName || "Unknown",
+                source: pr.source?.branch || "",
+                destination: pr.destination?.branch || "",
+                reviewers: pr.reviewers?.length || 0,
+                lastUpdate: pr.lastUpdate,
+              });
+            }
+          }
+        }
+      }
+
+      // Process branches
+      const branches = [];
+      if (branchResult?.detail) {
+        for (const detail of branchResult.detail) {
+          if (detail.branches) {
+            for (const branch of detail.branches) {
+              branches.push({
+                name: branch.name,
+                url: branch.url,
+                createPullRequestUrl: branch.createPullRequestUrl,
+                lastCommit: branch.lastCommit,
+              });
+            }
+          }
+        }
+      }
+
+      // Process builds
+      const builds = [];
+      if (buildResult?.detail) {
+        for (const detail of buildResult.detail) {
+          if (detail.builds) {
+            for (const build of detail.builds) {
+              builds.push({
+                id: build.id,
+                name: build.name,
+                state: build.state,
+                url: build.url,
+                lastUpdated: build.lastUpdated,
+              });
+            }
+          }
+        }
+      }
+
+      return {
+        success: true,
+        devInfo: {
+          pullRequests,
+          branches,
+          builds,
+          hasPullRequests: pullRequests.length > 0,
+          hasBranches: branches.length > 0,
+          hasBuilds: builds.length > 0,
+        },
+      };
+    } catch (error) {
+      // Dev-status API might not be available on all Jira instances
+      return {
+        success: false,
+        error: error.message,
+        devInfo: {
+          pullRequests: [],
+          branches: [],
+          builds: [],
+          hasPullRequests: false,
+          hasBranches: false,
+          hasBuilds: false,
+        },
+      };
+    }
+  });
+
   // Upload attachment to Jira issue
   ipcMain.handle(
     "jira-upload-attachment",

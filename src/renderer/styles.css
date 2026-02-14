@@ -2144,10 +2144,7 @@ body.light-theme .help-item code {
 }
 
 .notes-layout.sidebar-collapsed .note-item.active::before {
-  height: 70%;
-  width: 4px;
-  background: linear-gradient(180deg, #a5b4fc, var(--accent-primary));
-  box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+  display: none;
 }
 
 .notes-layout.sidebar-collapsed .note-drag-handle {
@@ -2550,12 +2547,12 @@ body.light-theme .help-item code {
 
 .note-title-input {
   flex: 1;
-  padding: 14px 18px;
+  padding: 10px 14px;
   border: 2px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.03);
   color: var(--text-color);
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   font-weight: 700;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   backdrop-filter: blur(10px);
@@ -2966,13 +2963,14 @@ body.light-theme .toolbar-select option {
   height: auto;
   border-radius: 10px;
   margin: 14px 0;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   cursor: pointer;
   transition: all 0.3s;
 }
 
 .note-read-view img:hover {
-  transform: scale(1.02);
+  transform: scale(1.01);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .note-read-view a {
@@ -2985,6 +2983,13 @@ body.light-theme .toolbar-select option {
 .note-read-view .img-overlay,
 .note-read-view .img-resize-handle {
   display: none;
+}
+
+.note-read-view hr {
+  border: none;
+  border-top: 2px solid rgba(99, 102, 241, 0.4);
+  margin: 12px 0;
+  width: 100%;
 }
 
 .note-read-view pre {
@@ -3055,16 +3060,16 @@ body.light-theme .toolbar-select option {
   cursor: pointer;
   min-width: 50px;
   min-height: 50px;
-  border: 2px solid transparent;
+  border: 1px solid transparent;
   transition: all 0.3s;
 }
 
 .note-editor img:hover {
-  border-color: rgba(99, 102, 241, 0.4);
+  border-color: rgba(99, 102, 241, 0.25);
 }
 
 .note-editor img.resizing {
-  border-color: var(--accent-primary);
+  border-color: rgba(99, 102, 241, 0.5);
   outline: none;
 }
 
@@ -3108,15 +3113,15 @@ body.light-theme .toolbar-select option {
 
 /* Image selected state */
 .img-resize-wrapper.selected {
-  outline: 3px solid var(--accent-primary);
-  outline-offset: 2px;
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
   border-radius: 8px;
 }
 
 /* Image drag over state */
 .img-resize-wrapper.drag-over {
-  outline: 3px dashed var(--accent-primary);
-  outline-offset: 4px;
+  outline: 2px dashed var(--accent-primary);
+  outline-offset: 2px;
   border-radius: 8px;
 }
 
@@ -4586,6 +4591,124 @@ body.light-theme .toolbar-select option {
   background: rgba(0, 0, 0, 0.05);
 }
 
+/* Development section styles */
+.preview-development-row {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.preview-development {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dev-loading {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.dev-no-data {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.dev-pr-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+[data-theme="light"] .dev-pr-item {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.dev-pr-icon {
+  font-size: 1rem;
+}
+
+.dev-pr-name {
+  flex: 1;
+  color: var(--primary-color);
+  text-decoration: none;
+  word-break: break-word;
+}
+
+.dev-pr-name:hover {
+  text-decoration: underline;
+}
+
+.dev-pr-status {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.dev-pr-status.merged {
+  background: rgba(130, 80, 223, 0.2);
+  color: #8250df;
+}
+
+.dev-pr-status.open {
+  background: rgba(35, 134, 54, 0.2);
+  color: #238636;
+}
+
+.dev-pr-status.declined,
+.dev-pr-status.closed {
+  background: rgba(218, 54, 51, 0.2);
+  color: #da3633;
+}
+
+.dev-branch-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+.dev-branch-name {
+  color: var(--text-color);
+  font-family: monospace;
+}
+
+.dev-build-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+}
+
+.dev-build-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dev-build-status.successful {
+  background: #238636;
+}
+
+.dev-build-status.failed {
+  background: #da3633;
+}
+
+.dev-build-status.inprogress {
+  background: #d29922;
+}
+
 .jira-link-preview.loading .preview-content {
   opacity: 0.5;
 }
@@ -5122,6 +5245,58 @@ body.light-theme .toolbar-select option {
 
 .issue-tooltip-description::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+/* Tooltip Development Section */
+.issue-tooltip-development-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="light"] .issue-tooltip-development-section {
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.issue-tooltip-development {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tooltip-dev-pr {
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  font-size: 0.78rem;
+}
+
+[data-theme="light"] .tooltip-dev-pr {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.tooltip-dev-pr-link {
+  flex: 1;
+  color: var(--primary-color);
+  text-decoration: none;
+  word-break: break-word;
+  cursor: pointer;
+}
+
+.tooltip-dev-pr-link:hover {
+  text-decoration: underline;
+}
+
+.dev-build-success {
+  color: #34d399;
+  font-weight: 500;
+}
+
+.dev-build-failed {
+  color: #f87171;
+  font-weight: 500;
 }
 
 .issue-tooltip-loading {
@@ -6040,8 +6215,8 @@ body.light-theme .blockquote-wrapper blockquote:focus {
 /* Horizontal Rule */
 .note-editor hr {
   border: none;
-  border-top: 2px solid var(--glass-border);
-  margin: 18px 0;
+  border-top: 2px solid rgba(99, 102, 241, 0.3);
+  margin: 14px 0;
 }
 
 /* Table */

@@ -2,6 +2,17 @@
 
 All notable changes to Work Launcher will be documented in this file.
 
+## [1.0.38] - 2026-02-14
+
+### Improved
+
+- Collapsed sidebar active note indicator: Hidden the vertical line (::before element) - when sidebar is collapsed by setting display: none;
+- Title input box size: Reduced from:
+
+Padding: 14px 18px → 10px 14px
+Font size: 1.1rem → 0.95rem
+Border radius: 12px → 10px
+
 ## [1.0.37] - 2026-02-14
 
 ### Improved
